@@ -1,7 +1,7 @@
 # RESUME STUDIO · vinext 全栈多模板简历编辑器
 
 工业标签风简历模板 → 可视化编辑器 → **vinext（Next.js API on Vite）全栈应用**。
-左侧表单实时编辑，右侧 A4 预览；支持 **多套模板 / 多页模板**、撤销重做、自动保存、文档库、发布分享、JSON / HTML / PDF 导出。
+左侧表单实时编辑，右侧 A4 预览；支持 **多套模板 / 多页模板**、撤销重做、自动保存、文档库、发布分享、JSON / HTML / PDF 导出，并通过 **MCP** 把读写、渲染、发布能力开放给 AI 客户端。
 
 ```
 Next.js App Router on Vite (vinext 1.2 / Vite 8 / React 19 RSC)
@@ -88,6 +88,67 @@ type TemplateDefinition = TemplateMeta & {
 存储目录：`process.env.RESUME_DATA_DIR ?? <cwd>/.data`，文档为 JSON，发布页为自包含 HTML。
 `app/page.tsx` 是 **Server Component**：读取文档列表与 `?doc=` 指定文档后传入客户端编辑器；写操作全部走 Route Handlers。
 
+## MCP（AI 客户端接入）
+
+同一份简历数据通过 **MCP（Model Context Protocol）** 暴露给 AI 客户端。端点是 **无状态 Streamable HTTP** 的 vinext Route Handler，纯 Node 运行时，不需要 Cloudflare 适配器。
+
+```bash
+npm run dev                                  # 端点：http://localhost:5173/api/mcp
+npm run build && npm run start -- --port 3020  # 生产：http://localhost:3020/api/mcp
+npm run mcp:smoke                            # HTTP 冒烟（MCP_URL 可覆盖地址）
+npm test                                     # 工具单测 + InMemoryTransport 端到端
+```
+
+通用客户端配置（Streamable HTTP）：
+
+```json
+{
+  "mcpServers": {
+    "resume-studio": {
+      "url": "http://localhost:5173/api/mcp",
+      "headers": { "Authorization": "Bearer <RESUME_MCP_TOKEN>" }
+    }
+  }
+}
+```
+
+- Claude Code：`claude mcp add --transport http resume-studio http://localhost:5173/api/mcp`
+- 仅支持 stdio 的客户端（如 Claude Desktop）：`npx mcp-remote http://localhost:5173/api/mcp`
+- 调试：`npx @modelcontextprotocol/inspector`，Transport 选 Streamable HTTP 并填写 URL。
+
+### Tools
+
+| 工具 | 说明 |
+| --- | --- |
+| `list_resumes` | 列出文档（id / 标题 / 更新时间 / 模板） |
+| `get_resume` | 读取完整 `ResumeData` + 模板元数据 |
+| `save_resume` | 新建（缺省 id 自动生成）或整份覆盖 |
+| `patch_resume` | RFC 7386 Merge Patch 局部修改（`null` 删除字段） |
+| `delete_resume` | 删除，幂等 |
+| `render_resume_html` | 服务端渲染多页自包含 HTML（可传 `id` 或临时 `data`） |
+| `publish_resume` | 渲染并写入 `.data/published`，返回 `/p/<id>` |
+
+### Resources / Prompts
+
+- `resume://docs`、`resume://docs/{id}`、`resume://templates`（只读 JSON）
+- `tailor_resume_to_job`（按 JD 定制）、`polish_resume`（润色文案）：引导模型先读后改、保留 `{指标}` 写法
+
+### 环境变量
+
+| 变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `RESUME_DATA_DIR` | `<cwd>/.data` | 文档与发布页目录，与 REST 共用 |
+| `RESUME_MCP_TOKEN` | 空 | 设置后要求 `Authorization: Bearer <token>`；空 = 不鉴权（建议仅本机） |
+| `RESUME_MCP_ALLOWED_ORIGINS` | 空 | 额外允许的浏览器 Origin，逗号分隔 |
+| `RESUME_PUBLIC_URL` | 空 | 发布结果返回绝对地址 |
+
+### 传输与安全
+
+- `POST /api/mcp` 承载 JSON-RPC，响应按 Streamable HTTP 返回 SSE 流；`GET` 返回 `405`（无状态端点不提供独立 SSE 流），`OPTIONS` 处理 CORS 预检。
+- 每个请求新建 server + transport，不保存会话；请求体上限 4 MiB、文档上限 2 MiB。
+- 浏览器请求带 `Origin` 时必须与 Host 一致或命中 `RESUME_MCP_ALLOWED_ORIGINS`，否则 `403`。
+- `render_resume_html` 使用 `src/mcp/render.ts` 的元素树序列化器（RSC 环境会禁用 `react-dom/server`），产出与编辑器导出的 HTML 同构。
+
 ## 目录
 
 ```
@@ -96,9 +157,18 @@ app/
 ├── page.tsx                 SSR：listDocs / readDoc → <EditorApp/>
 ├── icon.svg
 ├── api/health|docs|publish  Route Handlers
+├── api/mcp/route.ts         MCP Streamable HTTP 端点
 └── p/[id]/route.ts          发布页
 src/
 ├── EditorApp.tsx            编辑器外壳（工具栏 / 表单 / 预览 / 打印层）
+├── mcp/
+│   ├── handler.ts           鉴权 / Origin / 无状态 transport 生命周期
+│   ├── server.ts            createMcpServer：注册三原语 + instructions
+│   ├── tools.ts             7 个工具
+│   ├── resources.ts         3 个只读资源
+│   ├── prompts.ts           2 个提示词模板
+│   ├── render.ts            SSR 元素树 → 自包含 HTML
+│   └── config.ts            环境变量与限制
 ├── templates/
 │   ├── catalog.ts           模板元数据（服务端安全）
 │   ├── registry.tsx         模板注册 + CSS 聚合
@@ -112,6 +182,8 @@ src/
 ├── styles/                  editor.css、pages.ts（A4 + 导出壳）
 ├── data/defaultResume.ts    示例内容
 └── types.ts                 ResumeData v2
+tests/                       工具单测 + MCP 端到端
+scripts/mcp-smoke.mjs        真实 HTTP 冒烟
 ```
 
 ## 打印 / 字体
@@ -122,5 +194,6 @@ src/
 
 ## 说明
 
-- 目标运行时为 **Node**（vinext 的 Node 平台）。如果部署到 Cloudflare Workers，需要把 `src/server/store.ts` 换成 KV/R2/D1 实现，其余代码不变。
+- 目标运行时为 **Node**（vinext 的 Node 平台），MCP 端点同样跑在 Node 上；本期不考虑 Cloudflare Workers。如果部署到 Workers，需要把 `src/server/store.ts` 换成 KV/R2/D1 实现，其余代码不变。
+- MCP 设计文档：`docs/superpowers/specs/2026-10-19-mcp-design.md`。
 - vinext 仍处于快速迭代期，本项目只使用其稳定的 App Router / Route Handler 能力。
