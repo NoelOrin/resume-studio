@@ -9,7 +9,7 @@ export const TEMPLATE_CATALOG: TemplateMeta[] = [
     id: "industrial",
     name: "INDUSTRIAL",
     nameZh: "工业标签",
-    description: "模切贴纸 / 钴蓝条带 / 打码与套准标记，高信息密度单页。",
+    description: "模切贴纸 / 钴蓝条带 / 信号波形与套准标记，高信息密度单页。",
     pages: 1,
     accent: "#2F52E0",
     tags: ["单页", "标签风", "高密度"],

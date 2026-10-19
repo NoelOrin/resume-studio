@@ -47,7 +47,7 @@ export function FooterSection({ data, update, mutate }: SectionProps) {
         <Field label="白色贴纸主文案" value={f.plateTop} onChange={(v) => setF({ plateTop: v })} mono />
         <Field label="白色贴纸副文案" value={f.plateSub} onChange={(v) => setF({ plateSub: v })} mono />
       </Row>
-      <Field label="条码编号" value={f.code} onChange={(v) => setF({ code: v })} mono />
+      <Field label="信号编号 / 序列号" value={f.code} onChange={(v) => setF({ code: v })} mono />
       <Area label="签名区（多行）" value={f.sig} rows={3} onChange={(v) => setF({ sig: v })} hint="用换行分隔，最多 3 行" />
 
       <div className="ed-sub">页面左右竖排文字</div>

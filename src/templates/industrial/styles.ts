@@ -164,9 +164,10 @@ export const INDUSTRIAL_CSS = String.raw`
     color:transparent;-webkit-text-stroke:1.25px var(--paper);
     white-space:nowrap;}
 .t-industrial .foot-right{position:relative;margin-left:auto;margin-right:3.6mm;display:flex;align-items:flex-start;gap:3mm;z-index:2}
-.t-industrial .foot-barcode{width:32mm;background:#fff;padding:1.3mm 1.5mm 1.1mm;border-radius:.7mm}
-.t-industrial .foot-barcode .bars{height:5.4mm;background:repeating-linear-gradient(90deg,var(--ink) 0 .32mm,transparent .32mm .64mm,var(--ink) .64mm .94mm,transparent .94mm 1.36mm);margin-bottom:.8mm}
-.t-industrial .foot-barcode .num{font-family:var(--mono);font-size:4.2pt;letter-spacing:.15em;color:var(--blue);text-align:center}
+.t-industrial .foot-signal{width:38mm;background:#fff;padding:1.6mm 2mm 1.3mm;border-radius:.8mm}
+.t-industrial .foot-signal .wave{display:block;width:100%;height:5.2mm;margin-bottom:1mm;color:var(--blue)}
+.t-industrial .foot-signal .sig-meta{display:flex;justify-content:space-between;align-items:baseline;gap:2mm;font-family:var(--mono);font-size:4pt;letter-spacing:.1em;color:var(--blue);text-transform:uppercase;white-space:nowrap}
+.t-industrial .foot-signal .sig-meta b{font-weight:500}
 .t-industrial .foot-sig{font-family:var(--mono);font-size:4.4pt;line-height:1.6;letter-spacing:.07em;text-transform:uppercase;opacity:.88;text-align:right;padding-top:.8mm}
 .t-industrial .foot .reg{position:absolute;right:2.4mm;bottom:2.2mm}
 .t-industrial .foot-plate{position:absolute;left:3.2mm;top:3.2mm;z-index:2;background:#fff;border-radius:.7mm;

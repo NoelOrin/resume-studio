@@ -365,20 +365,17 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
         <header className="ed-top">
           <div className="ed-brand">
             <svg className="ed-logo" viewBox="0 0 34 34" aria-hidden="true">
-              <rect x=".6" y=".6" width="32.8" height="32.8" fill="none" stroke="currentColor" strokeWidth="1.4" />
-              <g fill="currentColor">
-                <rect x="4.5" y="5" width="1.6" height="13" />
-                <rect x="7.5" y="5" width="1" height="13" />
-                <rect x="9.8" y="5" width="2.2" height="13" />
-                <rect x="13.2" y="5" width="1" height="13" />
-                <rect x="15.5" y="5" width="1.6" height="13" />
-                <rect x="18.4" y="5" width="1" height="13" />
-                <rect x="20.7" y="5" width="2.2" height="13" />
-                <rect x="24.1" y="5" width="1.6" height="13" />
-                <rect x="27" y="5" width="1" height="13" />
-              </g>
-              <rect x="4.5" y="21.6" width="23.4" height="2.4" fill="currentColor" />
-              <rect x="4.5" y="26.2" width="11" height="2.4" fill="currentColor" />
+              <rect x=".7" y=".7" width="32.6" height="32.6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+              <path
+                d="M4 17.4h5.2l2.3-8 4.4 15.6 2.9-9.3 2 3.5h9.2"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.1"
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+              />
+              <path d="M4 23.4h26" stroke="currentColor" strokeWidth="1.1" />
+              <path d="M6.5 26h5M14.5 26h5M22.5 26h5" stroke="currentColor" strokeWidth="1.1" />
             </svg>
             <div className="ed-brand-txt">
               <b>RESUME STUDIO</b>

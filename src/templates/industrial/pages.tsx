@@ -61,24 +61,21 @@ function Strip({ data, page, pages }: { data: ResumeData; page?: number; pages?:
   );
 }
 
+/** Brand mark: framed signal pulse (replaces the old barcode mark). */
 function BrandMark() {
   return (
     <svg className="logomark" viewBox="0 0 40 40" aria-hidden="true">
       <rect x=".7" y=".7" width="38.6" height="38.6" fill="none" stroke="#fff" strokeWidth="1.4" />
-      <g fill="#fff">
-        <rect x="5.4" y="6" width="1.7" height="15" />
-        <rect x="8.6" y="6" width="1.1" height="15" />
-        <rect x="11.1" y="6" width="2.4" height="15" />
-        <rect x="14.9" y="6" width="1.1" height="15" />
-        <rect x="17.4" y="6" width="1.7" height="15" />
-        <rect x="20.5" y="6" width="1.1" height="15" />
-        <rect x="23" y="6" width="2.4" height="15" />
-        <rect x="26.8" y="6" width="1.7" height="15" />
-        <rect x="29.9" y="6" width="1.1" height="15" />
-        <rect x="32.4" y="6" width="1.7" height="15" />
-      </g>
-      <rect x="5.4" y="24.4" width="28.7" height="2.6" fill="#fff" />
-      <rect x="5.4" y="29.4" width="13.4" height="2.6" fill="#fff" />
+      <path
+        d="M4.5 20.5h6.2l2.7-9.5 5.2 18.5 3.4-11 2.4 4.2h10.9"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="2.4"
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+      />
+      <path d="M4.5 27.6h31" stroke="#fff" strokeWidth="1.1" />
+      <path d="M7.5 30.6h6M17 30.6h6M26.5 30.6h6" stroke="#fff" strokeWidth="1.1" />
     </svg>
   );
 }
@@ -396,9 +393,23 @@ function Foot({ data }: { data: ResumeData }) {
           <span>{footer.plateSub}</span>
         </div>
         <div className="foot-right">
-          <div className="foot-barcode">
-            <div className="bars" />
-            <div className="num">{footer.code}</div>
+          <div className="foot-signal">
+            <svg className="wave" viewBox="0 0 90 22" aria-hidden="true">
+              <path
+                d="M1 11h13l4.5-8 7 16 5-11 3.5 3h13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="square"
+                strokeLinejoin="miter"
+              />
+              <path d="M56 11h32" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M63 6.5v9M68.5 6.5v9M74 6.5v9M79.5 6.5v9M85 6.5v9" stroke="currentColor" strokeWidth="1.1" />
+            </svg>
+            <div className="sig-meta">
+              <b>SIGNAL LOCKED</b>
+              <span>{footer.code}</span>
+            </div>
           </div>
           <div className="foot-sig">
             {footer.sig.split("\n").map((line, i) => (

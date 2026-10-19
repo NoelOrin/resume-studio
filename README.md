@@ -46,7 +46,7 @@ type TemplateDefinition = TemplateMeta & {
 
 | 模板 | 页数 | 说明 |
 | --- | --- | --- |
-| `industrial` | 1 | 原版工业标签：模切卡片、钴蓝条带、打码 / 套准标记 |
+| `industrial` | 1 | 原版工业标签：模切卡片、钴蓝条带、信号波形 / 套准标记 |
 | `industrial-duplex` | 2 | 第 1 页身份 + 简介 + 履历 + 技能，第 2 页项目档案 + 证书 + 联系 |
 | `minimal` | 1 | 极简编辑排版：细规则线、大字号姓名、黑白 + 主色强调 |
 
