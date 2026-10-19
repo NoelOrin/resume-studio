@@ -8,3 +8,4 @@ next-env.d.ts
 
 # local resume storage (vinext server)
 .data/
+*.tsbuildinfo
