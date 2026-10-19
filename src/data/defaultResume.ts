@@ -5,7 +5,8 @@ import type { ResumeData } from '../types'
  * 渲染时会变成蓝色等宽高亮，例如：日均 {1.2M} 单。
  */
 export const defaultResume: ResumeData = {
-  version: 1,
+  version: 2,
+  templateId: 'industrial',
   theme: { accent: '#2F52E0' },
   flags: { showYears: true, showStats: true, showFlow: true },
 

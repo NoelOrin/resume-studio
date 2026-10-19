@@ -1,8 +1,10 @@
-node_modules/
-dist/
+node_modules
+.env*
+.next
+next-env.d.ts
+/dist/
+.vinext/
 .DS_Store
-*.local
 
-# user resumes & published pages are local artefacts
-server/data/
-server/published/
+# local resume storage (vinext server)
+.data/

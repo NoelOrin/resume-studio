@@ -1,119 +1,126 @@
-# RESUME STUDIO · 可视化简历编辑器
+# RESUME STUDIO · vinext 全栈多模板简历编辑器
 
-把原来的静态简历模板（`../resume.html`）改造成一个 **Vite + React** 的所见即所得编辑器：
-左边改内容，右边实时渲染同一张 A4 工业标签风简历；可自动保存、存档多份、导出 JSON / 单页 HTML / PDF，也能一键“发布”成静态页面。
-样式与模板 **100% 共享同一份 CSS**（`src/styles/sheetCss.ts`），所以预览、导出 HTML、打印出来的永远是同一个版本。
+工业标签风简历模板 → 可视化编辑器 → **vinext（Next.js API on Vite）全栈应用**。
+左侧表单实时编辑，右侧 A4 预览；支持 **多套模板 / 多页模板**、撤销重做、自动保存、文档库、发布分享、JSON / HTML / PDF 导出。
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│ RESUME STUDIO  文档名   保存状态      撤销 重做 缩放 导出 打印  │
-├───────────────────┬──────────────────────────────────────────┤
-│ 01 身份与联系      │                                          │
-│ 02 个人简介        │            ┌──────────────┐              │
-│ 03 工作经历        │            │   A4 预览     │  ← 点区块定位 │
-│ 04 项目            │            │  210×297mm    │              │
-│ 05 技术栈          │            └──────────────┘              │
-│ 06 教育与证书      │                                          │
-│ 07 页脚与流程      │                                          │
-│ 08 主题与显示      │                                          │
-└───────────────────┴──────────────────────────────────────────┘
+Next.js App Router on Vite (vinext 1.2 / Vite 8 / React 19 RSC)
+├── app/                     路由：页面、Route Handlers、发布页
+├── src/
+│   ├── EditorApp.tsx        编辑器（client component）
+│   ├── templates/           模板注册表：industrial / industrial-duplex / minimal
+│   ├── sections/            8 个编辑面板
+│   ├── server/store.ts      文件存储（.data/docs、.data/published）
+│   └── ...
+└── .data/                   本地数据（gitignore）
 ```
 
 ## 快速开始
 
 ```bash
-cd resume-editor
 npm install
-npm run dev          # → http://localhost:5178
+npm run dev        # vinext dev → http://localhost:5173
 ```
 
-`npm run dev` 同时启动 Vite 和本地文档 API（通过 Vite 中间件，不需要第二个进程）。
-
-生产模式：
+生产：
 
 ```bash
 npm run build
-npm start            # → http://localhost:5174 （静态站点 + API + 已发布页面）
+npm run start      # 默认 3000，被占用时：npx vinext start --port 3020
 ```
 
-> 需要 Node 20+。开发服务器端口 5178（被占用时自动换端口）；生产默认 5174，可用 `PORT=xxxx npm start` 覆盖。
+类型检查：`npm run check`。需要 Node 20+。
 
-## 编辑器功能
+## 模板系统（多页 / 可扩展）
 
-| 功能 | 说明 |
-| --- | --- |
-| 实时预览 | A4 等比缩放，支持「适应 / 50% / 75% / 100%」 |
-| 面板定位 | 点击右侧简历上的任意区块，左侧自动展开对应表单 |
-| 自动保存 | 300ms 防抖写入 `localStorage`，刷新不丢 |
-| 撤销 / 重做 | ⌘Z / ⇧⌘Z，文本在失焦时提交历史，增删排序立即提交 |
-| 原地增删 | 经历、项目、要点、联系方式、技能、流程步骤都可增删 / 上下移动 |
-| 主题 | 6 套预设主色 + 任意自定义色；年份徽标 / 数字统计 / 流程条可开关 |
-| 溢出检测 | 内容超出 A4 时页面顶部出现黄色提示，避免打印被裁切 |
-| 导入 / 导出 | JSON（可再导入）、单页 HTML（自包含 CSS，可直接分享） |
-| 打印 | ⌘P / 「打印」→ A4、边距 0、勾选「背景图形」 |
-| 文档库 | 服务器端多份存档，可打开 / 删除 / 新建副本 |
-| 发布 | 生成 `/p/<id>.html` 并复制链接（后端在线时） |
+模板在 `src/templates/catalog.ts` 注册元数据，在 `src/templates/registry.tsx` 绑定渲染器。每个模板是一个纯函数：
 
-指标高亮：正文里用花括号包住关键数字即可渲染成蓝色等宽字体，例如
-`日均 {1.2M} 单，P99 降至 {210ms}`。
+```ts
+type TemplateDefinition = TemplateMeta & {
+  css: string;                                  // 作用域内的模板 CSS
+  render: (data: ResumeData, page: number) => ReactNode; // 渲染第 page 页（0 起）
+};
+```
 
-## 后端 API
+当前内置：
 
-本地 Express 风格的零依赖 handler（`server/api.mjs`），数据落在磁盘：
+| 模板 | 页数 | 说明 |
+| --- | --- | --- |
+| `industrial` | 1 | 原版工业标签：模切卡片、钴蓝条带、打码 / 套准标记 |
+| `industrial-duplex` | 2 | 第 1 页身份 + 简介 + 履历 + 技能，第 2 页项目档案 + 证书 + 联系 |
+| `minimal` | 1 | 极简编辑排版：细规则线、大字号姓名、黑白 + 主色强调 |
+
+新增模板只需三步：
+
+1. 新建 `src/templates/<id>/`：一个渲染组件 + 一份以 `.t-<id>` 为根的 scoped CSS；
+2. 在 `catalog.ts` 加一条元数据（名称、描述、`pages`、默认主色、标签）；
+3. 在 `registry.tsx` 注册 `css` 与 `render`。
+
+约定：页面根节点使用 `.tpl-page`，内容流包在 `.tpl-flow` 内（编辑器据此做 **逐页 A4 溢出检测**）；需要联动编辑面板的区块加 `data-panel="identity|profile|experience|projects|stack|education|flow|footer"`。
+
+编辑器会自动：注入全部模板 CSS、渲染模板缩略图、显示页码 / 翻页器、打印与导出全部页面、切换模板时套用该模板默认主色（用户自定义主色则保留）。
+
+## 编辑器能力
+
+- **实时 A4 预览**：适应 / 50% / 75% / 100%，多页模板可翻页（PAGE 01 / 02）
+- **点击定位**：点右侧版面任意区块 → 左侧展开对应表单
+- **撤销 / 重做**：⌘Z / ⇧⌘Z；输入框内直接撤销会先提交编辑历史
+- **原地增删排序**：经历、要点、项目、指标、技能、联系方式、流程步骤
+- **指标高亮**：正文里 `日均 {1.2M} 单` → 蓝色等宽重点
+- **模板库**：3 套实时缩略图，单击切换；模板默认主色自动适配
+- **主题**：6 套主色 + 任意取色；年份徽标 / 统计 / 流程条可开关
+- **溢出检测**：按当前页检测 `.tpl-flow`，超出 A4 顶部出现黄色警示
+- **自动保存**：localStorage（350ms 防抖）+ 服务器静默同步
+- **导出**：JSON（v2，含 `templateId`，兼容导入 v1）、自包含 HTML（全部页面）、打印 PDF
+- **文档库**：服务器多份存档；打开走 `/?doc=<id>` 服务端渲染
+- **发布**：`POST /api/publish` → 生成 `/p/<id>` 静态 HTML，复制链接即可分享
+
+## 后端（vinext Route Handlers）
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/health` | 健康检查（前端据此决定是否启用服务器功能） |
+| GET | `/api/health` | 健康检查 + 已注册模板列表 |
 | GET | `/api/docs` | 文档列表 |
-| GET | `/api/docs/:id` | 读取单份简历 |
-| PUT | `/api/docs/:id` | 保存（`{ title, data }`） |
-| DELETE | `/api/docs/:id` | 删除 |
-| POST | `/api/publish` | `{ id, title, html }` → 写入 `server/published/<id>.html` |
-| GET | `/p/<id>.html` | 访问已发布的静态简历 |
+| GET / PUT / DELETE | `/api/docs/:id` | 读取 / 保存 / 删除（`{ title, data }`） |
+| POST | `/api/publish` | `{ id, title, html }` → `.data/published/<id>.html` |
+| GET | `/p/:id` | 返回已发布的完整 HTML |
 
-- 存档目录：`server/data/*.json`
-- 发布目录：`server/published/*.html`
-- 开发环境由 `vite.config.mjs` 里的 `resumeApi()` 插件挂载；`npm start` 时由 `server/index.mjs` 提供。
-- 后端不可用时，编辑器自动降级为纯浏览器保存，导出的 HTML 走本地下载。
+存储目录：`process.env.RESUME_DATA_DIR ?? <cwd>/.data`，文档为 JSON，发布页为自包含 HTML。
+`app/page.tsx` 是 **Server Component**：读取文档列表与 `?doc=` 指定文档后传入客户端编辑器；写操作全部走 Route Handlers。
 
-## 目录结构
+## 目录
 
 ```
-resume-editor/
-├── index.html
-├── vite.config.mjs          # React 插件 + 开发期 API 中间件
-├── server/
-│   ├── api.mjs              # 文档 / 发布 handler（dev + prod 共用）
-│   └── index.mjs            # 生产入口（静态 + API）
-└── src/
-    ├── App.tsx              # 编辑器外壳：工具栏 / 表单 / 预览 / 打印层
-    ├── types.ts             # ResumeData 数据模型
-    ├── data/defaultResume.ts# 默认内容（改这里可换示例）
-    ├── components/
-    │   ├── ResumeSheet.tsx  # A4 简历渲染（纯展示，浏览器预览与导出共用）
-    │   ├── fields.tsx       # 输入框、列表、开关等表单原语
-    │   ├── Accordion.tsx
-    │   └── LibraryModal.tsx
-    ├── sections/            # 8 个编辑面板
-    ├── lib/
-    │   ├── useResumeStore.ts# 状态 + 撤销栈 + 自动保存
-    │   ├── useSheetOverflow.ts
-    │   ├── backend.ts       # API client
-    │   ├── exporters.ts     # 单页 HTML / JSON / 下载
-    │   └── arrays.ts
-    └── styles/
-        ├── sheetCss.ts      # 简历本体样式（从模板原样搬运，唯一真源）
-        └── editor.css       # 编辑器 UI
+app/
+├── layout.tsx               Metadata + 全局 editor.css
+├── page.tsx                 SSR：listDocs / readDoc → <EditorApp/>
+├── icon.svg
+├── api/health|docs|publish  Route Handlers
+└── p/[id]/route.ts          发布页
+src/
+├── EditorApp.tsx            编辑器外壳（工具栏 / 表单 / 预览 / 打印层）
+├── templates/
+│   ├── catalog.ts           模板元数据（服务端安全）
+│   ├── registry.tsx         模板注册 + CSS 聚合
+│   ├── types.ts             TemplateDefinition 契约
+│   ├── industrial/          pages.tsx + styles.ts（原版 + 双页）
+│   └── minimal/             MinimalPage.tsx + styles.ts
+├── components/              Accordion / fields / TemplatePicker / LibraryModal
+├── sections/                8 个编辑面板
+├── lib/                     store / overflow / backend / exporters / migrate
+├── server/store.ts          fs 存储
+├── styles/                  editor.css、pages.ts（A4 + 导出壳）
+├── data/defaultResume.ts    示例内容
+└── types.ts                 ResumeData v2
 ```
 
-## 数据模型
+## 打印 / 字体
 
-全部内容都在 `src/types.ts` 的 `ResumeData` 里，`version: 1`。
-导入 JSON 时会校验 `version / header / experience`，失败会提示。
-想改默认内容，直接编辑 `src/data/defaultResume.ts`（或导入自己导出的 JSON）。
+- 打印：A4、边距「无」、勾选「背景图形」；多页模板每页自动分页。
+- 字体使用系统自带：DIN Condensed、HarmonyOS Sans SC、SF Mono（含 Arial Narrow / PingFang 回退）。
+- 导出的 HTML 与发布页不依赖本项目 JS/CSS，可独立打开与二次分发。
 
-## 打印 / 发布注意事项
+## 说明
 
-- 浏览器打印：**A4、边距「无」、勾选「背景图形」**，否则蓝底与描边字会缺失。
-- 字体使用 macOS 自带：`DIN Condensed`、`HarmonyOS Sans SC`、`SF Mono`，并有 Arial Narrow / PingFang 回退；跨平台分享建议直接发导出的 HTML 或 PDF。
-- 发布出来的 HTML 是**完全自包含**的（样式内联在页面里），不依赖本项目的 JS/CSS。
+- 目标运行时为 **Node**（vinext 的 Node 平台）。如果部署到 Cloudflare Workers，需要把 `src/server/store.ts` 换成 KV/R2/D1 实现，其余代码不变。
+- vinext 仍处于快速迭代期，本项目只使用其稳定的 App Router / Route Handler 能力。

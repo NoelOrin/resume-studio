@@ -714,8 +714,14 @@ textarea {
   inset: 0;
   transform-origin: top left;
 }
-.ed-canvas .sheet {
+.ed-canvas .tpl-page {
   box-shadow: none;
+}
+.ed-page-host {
+  width: 210mm;
+  height: 297mm;
+  position: relative;
+  transform-origin: top left;
 }
 .ed-caption {
   display: flex;
@@ -877,8 +883,195 @@ textarea {
   flex: 1;
 }
 
+/* ---------------- pager ---------------- */
+.ed-pager {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #111;
+  background: #fff;
+  border-radius: 3px;
+  padding: 4px 6px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+.ed-pager button {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+  font-family: var(--ed-mono);
+  font-size: 11px;
+  color: #111;
+}
+.ed-pager button:hover:not(:disabled) {
+  background: #111;
+  color: #fff;
+}
+.ed-pager button:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+}
+.ed-pager-label {
+  font-family: var(--ed-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+.ed-pager-dots {
+  display: flex;
+  gap: 5px;
+  padding-left: 6px;
+  border-left: 1px solid rgba(0, 0, 0, 0.18);
+}
+.ed-pager-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d0d0c8;
+  cursor: pointer;
+}
+.ed-pager-dots i.is-on {
+  background: var(--ed-blue);
+}
+
+/* ---------------- template picker ---------------- */
+.ed-tpl-modal {
+  width: min(920px, 100%);
+}
+.ed-tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px 18px 18px;
+}
+.ed-tpl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.22);
+  border-radius: 6px;
+  background: #fbfbf8;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+}
+.ed-tpl-card:hover {
+  border-color: #111;
+  transform: translateY(-1px);
+}
+.ed-tpl-card.is-active {
+  border-color: var(--ed-blue);
+  box-shadow: 0 0 0 2px rgba(47, 82, 224, 0.2);
+  background: #fff;
+}
+.ed-tpl-thumb {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  margin: 0 auto;
+}
+.ed-tpl-mini {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 210mm;
+  transform-origin: top left;
+  pointer-events: none;
+}
+.ed-tpl-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.ed-tpl-name {
+  font-family: var(--ed-disp);
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ed-tpl-name em {
+  font-family: var(--ed-cn);
+  font-style: normal;
+  font-size: 11px;
+  letter-spacing: 0;
+  color: #555;
+}
+.ed-tpl-desc {
+  font-family: var(--ed-cn);
+  font-size: 11px;
+  line-height: 1.55;
+  color: #777;
+}
+.ed-tpl-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.ed-tpl-tags b,
+.ed-tpl-tags i {
+  font-family: var(--ed-mono);
+  font-style: normal;
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 2px;
+  padding: 2px 4px;
+  color: #555;
+}
+.ed-tpl-tags b {
+  background: var(--ed-blue);
+  border-color: var(--ed-blue);
+  color: #fff;
+}
+.ed-tpl-note {
+  font-family: var(--ed-mono);
+  font-size: 8px;
+  letter-spacing: 0.02em;
+  color: #9a9a92;
+}
+.ed-tpl-note code {
+  background: #f1f1ea;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+  padding: 1px 3px;
+  font-size: 8px;
+}
+.ed-tpl-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.24);
+  border-radius: 5px;
+  background: #fff;
+}
+.ed-tpl-current b {
+  display: block;
+  font-family: var(--ed-cn);
+  font-size: 12.5px;
+}
+.ed-tpl-current span {
+  display: block;
+  font-family: var(--ed-mono);
+  font-size: 8px;
+  letter-spacing: 0.05em;
+  color: #8a8a83;
+  margin-top: 2px;
+}
+
 /* ---------------- print ---------------- */
-.ed-print {
+.ed-export-layer {
   display: none;
 }
 
@@ -902,10 +1095,10 @@ textarea {
   .ed-overlay {
     display: none !important;
   }
-  .ed-print {
+  .ed-export-layer {
     display: block !important;
   }
-  .ed-print .sheet {
+  .ed-export-layer .tpl-page {
     box-shadow: none;
   }
 }

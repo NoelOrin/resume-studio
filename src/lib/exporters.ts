@@ -1,21 +1,26 @@
-import { EXPORT_PAGE_CSS, SHEET_CSS } from '../styles/sheetCss'
+import { EXPORT_PAGE_CSS, PAGE_CSS } from '../styles/pages'
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
 }
 
-/** Freeze the live sheet (including inline accent variable) into a standalone file. */
-export function buildStandaloneHtml(sheet: Element, title: string): string {
+/**
+ * Freeze the rendered pages (all pages of the current template) into a
+ * standalone HTML file that shares the template CSS but no app JS.
+ */
+export function buildStandaloneHtml(exportNode: Element, templateCss: string, title: string): string {
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
-<style>${SHEET_CSS}${EXPORT_PAGE_CSS}</style>
+<style>${PAGE_CSS}${templateCss}${EXPORT_PAGE_CSS}</style>
 </head>
 <body>
-${sheet.outerHTML}
+<div class="tpl-export">
+${exportNode.innerHTML}
+</div>
 </body>
 </html>
 `
@@ -37,8 +42,8 @@ export function exportJson(data: unknown, filename: string) {
   download(filename, JSON.stringify(data, null, 2), 'application/json;charset=utf-8')
 }
 
-export function exportHtml(sheet: Element, title: string, filename: string) {
-  download(filename, buildStandaloneHtml(sheet, title), 'text/html;charset=utf-8')
+export function downloadHtml(html: string, filename: string) {
+  download(filename, html, 'text/html;charset=utf-8')
 }
 
 export async function copyText(text: string): Promise<boolean> {

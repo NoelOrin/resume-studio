@@ -21,7 +21,9 @@ export type Project = {
 }
 
 export type ResumeData = {
-  version: 1
+  version: 2
+  /** which template renders this document, see src/templates/registry.ts */
+  templateId: string
   theme: { accent: string }
   flags: { showYears: boolean; showStats: boolean; showFlow: boolean }
   strip: { a: string; b: string; rev: string; sheet: string; date: string }
@@ -68,4 +70,13 @@ export type DocRecord = {
   id: string
   title: string
   updatedAt: string | null
+  templateId?: string
+}
+
+export type StoredDoc = {
+  id: string
+  title: string
+  updatedAt: string
+  templateId?: string
+  data: ResumeData
 }
