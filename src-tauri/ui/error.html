@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Resume Studio</title>
+    <style>
+      :root {
+        --kiwi: #97f11d;
+        --onyx: #111111;
+        --paper: #f2f3ec;
+        --grey: #707070;
+        --mono: "SF Mono", Menlo, Monaco, monospace;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--onyx);
+        color: var(--paper);
+        font: 13px/1.7 var(--mono);
+        display: grid;
+        place-items: center;
+      }
+      .box {
+        max-width: 560px;
+        padding: 32px 36px;
+        border: 1px solid rgba(242, 243, 236, 0.22);
+      }
+      h1 {
+        font-size: 20px;
+        margin: 0 0 12px;
+        letter-spacing: -0.01em;
+      }
+      h1 b {
+        color: var(--kiwi);
+        font-weight: 600;
+      }
+      p {
+        color: var(--grey);
+        margin: 0 0 10px;
+      }
+      code {
+        color: var(--kiwi);
+        background: rgba(151, 241, 29, 0.09);
+        padding: 1px 5px;
+      }
+      ol {
+        color: var(--grey);
+        padding-left: 18px;
+        margin: 12px 0 0;
+      }
+      li {
+        margin-bottom: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h1>本地服务没能启动 <b>·</b> server did not start</h1>
+      <p>桌面外壳已经运行，但内置的 Node 运行时没能按时就绪。</p>
+      <ol>
+        <li>先看日志：<code>~/Library/Application Support/dev.linzhiyuan.resume-studio/server.log</code></li>
+        <li>常见原因：安装包被不完整解压、macOS 隔离属性拦截、端口被占用。</li>
+        <li>重新打开应用；仍失败可在终端里直接运行应用内的可执行文件查看报错。</li>
+      </ol>
+    </div>
+  </body>
+</html>

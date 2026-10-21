@@ -16,6 +16,7 @@
  */
 import { cpSync, existsSync, mkdirSync, readdirSync, realpathSync, rmSync, statSync } from "node:fs";
 import { execFileSync, spawn } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 
@@ -70,41 +71,34 @@ cpSync(path.join(root, "package.json"), path.join(runtime, "package.json"));
 log("copying dist/");
 cpSync(path.join(root, "dist"), path.join(runtime, "dist"), { recursive: true });
 
-log("copying node_modules/ (this is the big one)");
-cpSync(path.join(root, "node_modules"), path.join(runtime, "node_modules"), {
-  recursive: true,
-  dereference: true,
-  filter: (src) => !src.includes(`${path.sep}.cache${path.sep}`) && !src.endsWith(`${path.sep}.cache`),
+// Install the *production* dependency tree instead of copying the local one.
+// Copying node_modules also copies dev-only packages, and any aggressive pruning
+// risks removing transitive runtime deps (e.g. rolldown needs @rolldown/pluginutils).
+log("installing production dependencies (npm ci --omit=dev)");
+cpSync(path.join(root, "package-lock.json"), path.join(runtime, "package-lock.json"));
+const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+execFileSync(npmCmd, ["ci", "--omit=dev", "--no-audit", "--no-fund"], {
+  cwd: runtime,
+  stdio: "inherit",
 });
 
-// Build-time only packages. The packaged server never imports these; the smoke
-// test below fails loudly if that assumption ever stops holding.
-log("pruning build-only packages");
-const PRUNE = [
-  "typescript",
-  "@tauri-apps",
-  "webpack",
-  "@rolldown",
-  "@img",
-  "esbuild",
-  "@esbuild",
-  ".cache",
-];
-for (const name of PRUNE) {
-  rmSync(path.join(runtime, "node_modules", name), { recursive: true, force: true });
-}
-
 // Smoke test: boot the packaged server once before handing it to Tauri.
-log("smoke-testing packaged server");
+// IMPORTANT: run it from an isolated copy outside the project tree. Node walks up
+// the directory chain when resolving modules, so testing `runtime/` in place can
+// silently borrow the project's own node_modules and hide missing packages.
+log("smoke-testing packaged server (isolated copy)");
 const port = 3191;
-const probeData = path.join(root, ".runtime-smoke");
-rmSync(probeData, { recursive: true, force: true });
+const probeRoot = path.join(os.tmpdir(), `resume-runtime-smoke-${process.pid}`);
+const probeRuntime = path.join(probeRoot, "runtime");
+const probeData = path.join(probeRoot, "data");
+rmSync(probeRoot, { recursive: true, force: true });
+cpSync(runtime, probeRuntime, { recursive: true, dereference: true });
 
 const child = spawn(
-  path.join(runtime, nodeName),
-  [path.join(runtime, "node_modules/vinext/dist/cli.js"), "start", "--port", String(port)],
+  path.join(probeRuntime, nodeName),
+  [path.join(probeRuntime, "node_modules/vinext/dist/cli.js"), "start", "--port", String(port)],
   {
-    cwd: runtime,
+    cwd: probeRuntime,
     env: { ...process.env, NODE_ENV: "production", RESUME_DATA_DIR: probeData },
     stdio: ["ignore", "pipe", "pipe"],
   },
@@ -134,7 +128,7 @@ while (Date.now() < deadline) {
 }
 
 child.kill("SIGKILL");
-rmSync(probeData, { recursive: true, force: true });
+rmSync(probeRoot, { recursive: true, force: true });
 
 if (!ok) {
   console.error("✗ packaged server did not become healthy:\n" + output.slice(-2000));

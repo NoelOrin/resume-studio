@@ -97,6 +97,35 @@ jobs:
       - name: Build desktop bundle
         run: npx tauri build --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
+      # Prove the *packaged* app boots, not just the assembled runtime dir.
+      # Run from a copy outside the repo so Node cannot borrow project node_modules.
+      - name: Smoke test packaged app (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="src-tauri/target/${{ matrix.target }}/release/bundle/macos/Resume Studio.app"
+          rm -rf /tmp/appcheck && mkdir -p /tmp/appcheck
+          cp -R "$APP" /tmp/appcheck/
+          "/tmp/appcheck/Resume Studio.app/Contents/MacOS/resume-studio-desktop" > /tmp/app.log 2>&1 &
+          APP_PID=$!
+          PORT=""
+          for _ in $(seq 1 60); do
+            PORT=$(grep -oE '127\.0\.0\.1:[0-9]+' /tmp/app.log | head -1 | cut -d: -f2 || true)
+            if [ -n "$PORT" ] && curl -fsS "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          if [ -z "$PORT" ] || ! curl -fsS "http://127.0.0.1:$PORT/api/health"; then
+            echo "::error::packaged app did not boot"
+            echo "--- app log ---"; cat /tmp/app.log || true
+            echo "--- server log ---"; cat "$HOME/Library/Application Support/dev.linzhiyuan.resume-studio/server.log" || true
+            exit 1
+          fi
+          echo "packaged app boots on 127.0.0.1:$PORT"
+          kill "$APP_PID" 2>/dev/null || true
+
       - name: Zip .app (macOS)
         if: runner.os == 'macOS'
         run: ditto -c -k --keepParent "src-tauri/target/${{ matrix.target }}/release/bundle/macos/Resume Studio.app" "Resume Studio.app.zip"

@@ -7,6 +7,9 @@
 //   3. waits for the port, then opens the webview on it,
 //   4. kills the server when the app exits.
 //
+// Setup never panics: a failure opens `error.html` so the user sees something
+// actionable instead of a silent crash.
+//
 // Dev escape hatches:
 //   RESUME_DEV_URL       point the window at an already-running server
 //   RESUME_RUNTIME_DIR   use a loose runtime dir instead of the bundled resource
@@ -22,6 +25,8 @@ use std::time::{Duration, Instant};
 
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 
+const APP_ID: &str = "dev.linzhiyuan.resume-studio";
+
 struct ServerState(Mutex<Option<Child>>);
 
 fn free_port() -> u16 {
@@ -31,11 +36,34 @@ fn free_port() -> u16 {
         .unwrap_or(3178)
 }
 
-fn runtime_dir(app: &tauri::App) -> Result<PathBuf, Box<dyn std::error::Error>> {
+/// Bundled runtime dir: env override → resource dir → ../Resources next to the exe.
+fn resolve_runtime_dir(app: &tauri::App) -> Option<PathBuf> {
     if let Ok(dir) = std::env::var("RESUME_RUNTIME_DIR") {
-        return Ok(PathBuf::from(dir));
+        return Some(PathBuf::from(dir));
     }
-    Ok(app.path().resource_dir()?.join("runtime"))
+    if let Ok(resources) = app.path().resource_dir() {
+        let dir = resources.join("runtime");
+        if dir.is_dir() {
+            return Some(dir);
+        }
+    }
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?.parent()?.join("Resources").join("runtime");
+    dir.is_dir().then_some(dir)
+}
+
+/// Writable data dir: app data dir → ~/Library/Application Support/<id> → temp.
+fn resolve_data_dir(app: &tauri::App) -> PathBuf {
+    if let Ok(dir) = app.path().app_data_dir() {
+        return dir;
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        return PathBuf::from(home)
+            .join("Library")
+            .join("Application Support")
+            .join(APP_ID);
+    }
+    std::env::temp_dir().join("resume-studio")
 }
 
 fn wait_for_port(port: u16, timeout: Duration) -> bool {
@@ -70,50 +98,64 @@ fn spawn_server(runtime: &Path, data_dir: &Path, port: u16, log: &Path) -> std::
         .spawn()
 }
 
+fn open_window(app: &mut tauri::App, url: url::Url) -> tauri::Result<()> {
+    WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
+        .title("Resume Studio")
+        .inner_size(1500.0, 960.0)
+        .min_inner_size(1000.0, 700.0)
+        .build()?;
+    Ok(())
+}
+
+fn open_error_window(app: &mut tauri::App) {
+    let _ = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("error.html".into()))
+        .title("Resume Studio — 启动失败")
+        .inner_size(860.0, 520.0)
+        .build();
+}
+
+fn boot(app: &mut tauri::App) -> Result<(), String> {
+    // Dev shortcut: reuse an already-running dev server.
+    if let Ok(raw) = std::env::var("RESUME_DEV_URL") {
+        let url = url::Url::parse(&raw).map_err(|e| format!("RESUME_DEV_URL 无效: {e}"))?;
+        return open_window(app, url).map_err(|e| e.to_string());
+    }
+
+    let runtime = resolve_runtime_dir(app).ok_or("找不到内置 Node 运行时（runtime/）")?;
+    let data_dir = resolve_data_dir(app);
+    std::fs::create_dir_all(&data_dir).map_err(|e| format!("无法创建数据目录: {e}"))?;
+    let log_path = data_dir.join("server.log");
+
+    println!("[resume-studio] runtime={}", runtime.display());
+    println!("[resume-studio] data={}", data_dir.display());
+
+    let port = free_port();
+    let child = spawn_server(&runtime, &data_dir, port, &log_path)
+        .map_err(|e| format!("无法启动内置服务: {e}"))?;
+    app.manage(ServerState(Mutex::new(Some(child))));
+
+    let ready = wait_for_port(port, Duration::from_secs(45));
+    println!("[resume-studio] serving on http://127.0.0.1:{port}/ ready={ready}");
+
+    if ready {
+        let url = url::Url::parse(&format!("http://127.0.0.1:{port}/"))
+            .map_err(|e| format!("地址无效: {e}"))?;
+        open_window(app, url).map_err(|e| e.to_string())
+    } else {
+        Err(format!(
+            "内置服务 45 秒内未就绪，日志：{}",
+            log_path.display()
+        ))
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
-            // Dev shortcut: reuse an already-running dev server.
-            if let Ok(url) = std::env::var("RESUME_DEV_URL") {
-                let parsed = url::Url::parse(&url)?;
-                WebviewWindowBuilder::new(app, "main", WebviewUrl::External(parsed))
-                    .title("Resume Studio")
-                    .inner_size(1500.0, 960.0)
-                    .min_inner_size(1000.0, 700.0)
-                    .build()?;
-                return Ok(());
+            if let Err(err) = boot(app) {
+                eprintln!("[resume-studio] setup failed: {err}");
+                open_error_window(app);
             }
-
-            let runtime = runtime_dir(app)?;
-            let data_dir = app.path().app_data_dir()?;
-            std::fs::create_dir_all(&data_dir)?;
-            let log_path = data_dir.join("server.log");
-
-            println!("[resume-studio] runtime={}", runtime.display());
-            println!("[resume-studio] data={}", data_dir.display());
-
-            let port = free_port();
-            let child = spawn_server(&runtime, &data_dir, port, &log_path)?;
-            app.manage(ServerState(Mutex::new(Some(child))));
-
-            let ready = wait_for_port(port, Duration::from_secs(45));
-            println!("[resume-studio] serving on http://127.0.0.1:{port}/ ready={ready}");
-
-            if ready {
-                let url = url::Url::parse(&format!("http://127.0.0.1:{port}/"))?;
-                WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
-                    .title("Resume Studio")
-                    .inner_size(1500.0, 960.0)
-                    .min_inner_size(1000.0, 700.0)
-                    .build()?;
-            } else {
-                // Surface a readable failure instead of a blank window.
-                WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                    .title("Resume Studio — 启动失败")
-                    .inner_size(900.0, 560.0)
-                    .build()?;
-            }
-
             Ok(())
         })
         .build(tauri::generate_context!())

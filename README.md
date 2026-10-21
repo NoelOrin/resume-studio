@@ -219,7 +219,8 @@ npm run desktop:dev       # 只调壳：窗口指向已在跑的 http://localhos
 
 产物：`src-tauri/target/release/bundle/{macos,dmg}`。
 
-- `runtime/` 里的 node 会按宿主架构 `lipo -thin`，并剔除只在构建期用到的包（typescript / webpack / esbuild / @tauri-apps 等）；组装脚本自带一次「起服务 + 拉页面」的冒烟，失败即中断打包。
+- `runtime/` 里的 node 会按宿主架构 `lipo -thin`；依赖用 `npm ci --omit=dev` 装出**真实的生产树**（不手工裁剪，避免删掉 `rolldown` 这类运行时传递依赖）。
+- 组装脚本自带冒烟：把 `runtime/` 复制到**项目目录之外**再起服务、拉 `/api/health` 与首页。必须隔离，否则 Node 会沿目录向上找到项目自己的 `node_modules`，把缺失依赖藏起来。
 - 应用数据目录：`~/Library/Application Support/dev.linzhiyuan.resume-studio`（文档库与 `server.log`）。
 - 已知限制：macOS 的 WKWebView 不支持 `window.print()`，桌面版导出 PDF 请走「导出 HTML」再在浏览器打印。
 
@@ -231,6 +232,7 @@ npm run desktop:dev       # 只调壳：窗口指向已在跑的 http://localhos
 - `bundle`：矩阵构建 **macOS arm64**（`.app` + `.dmg`）与 **Windows x64**（NSIS `.exe`），产物上传到 Actions artifacts（保留 30 天）
 
 触发方式：手动 `workflow_dispatch`、push 到 `master`/`main` 且改动 `src-tauri/**` 等桌面相关路径、或打 `v*` tag。
+macOS 任务在打包后会**把 .app 复制到 /tmp 并真启动一次**、拉 `/api/health` 验证，避免「job 绿但产物打不开」。
 
 ## 说明
 
