@@ -8,7 +8,7 @@ Next.js App Router on Vite (vinext 1.2 / Vite 8 / React 19 RSC)
 ├── app/                     路由：页面、Route Handlers、发布页
 ├── src/
 │   ├── EditorApp.tsx        编辑器（client component）
-│   ├── templates/           模板注册表：industrial / industrial-duplex / minimal
+│   ├── templates/           模板注册表：industrial / industrial-duplex / minimal / moonlight / quiet
 │   ├── sections/            8 个编辑面板
 │   ├── server/store.ts      文件存储（.data/docs、.data/published）
 │   └── ...
@@ -31,6 +31,15 @@ npm run start      # 默认 3000，被占用时：npx vinext start --port 3020
 
 类型检查：`npm run check`。需要 Node 20+。
 
+模板预览（不启动应用，直接渲染真 A4 + 截图 + 溢出测量）：
+
+```bash
+npm run preview:tpl -- moonlight      # 单个模板
+npm run preview:tpl -- --all          # 全部模板
+# → /tmp/tpl-preview/<id>.png (1600×2400) + <id>.html
+# 输出行给出 page / flow 溢出像素与 FITS=yes|no
+```
+
 ## 模板系统（多页 / 可扩展）
 
 模板在 `src/templates/catalog.ts` 注册元数据，在 `src/templates/registry.tsx` 绑定渲染器。每个模板是一个纯函数：
@@ -49,6 +58,8 @@ type TemplateDefinition = TemplateMeta & {
 | `industrial` | 1 | 原版工业标签：模切卡片、钴蓝条带、信号波形 / 套准标记 |
 | `industrial-duplex` | 2 | 第 1 页身份 + 简介 + 履历 + 技能，第 2 页项目档案 + 证书 + 联系 |
 | `minimal` | 1 | 极简编辑排版：细规则线、大字号姓名、黑白 + 主色强调 |
+| `moonlight` | 1 | 月光海报：巨月与城市剪影、彩纸碎屑、三行压缩巨字，默认 Kiwi 绿 `#97F11D` |
+| `quiet` | 1 | 色卡规格表：纸白印刷风、严格网格、编号即索引，主色只做线与编号 |
 
 新增模板只需三步：
 
@@ -67,7 +78,7 @@ type TemplateDefinition = TemplateMeta & {
 - **撤销 / 重做**：⌘Z / ⇧⌘Z；输入框内直接撤销会先提交编辑历史
 - **原地增删排序**：经历、要点、项目、指标、技能、联系方式、流程步骤
 - **指标高亮**：正文里 `日均 {1.2M} 单` → 蓝色等宽重点
-- **模板库**：3 套实时缩略图，单击切换；模板默认主色自动适配
+- **模板库**：5 套实时缩略图，单击切换；模板默认主色自动适配
 - **主题**：6 套主色 + 任意取色；年份徽标 / 统计 / 流程条可开关
 - **溢出检测**：按当前页检测 `.tpl-flow`，超出 A4 顶部出现黄色警示
 - **自动保存**：localStorage（350ms 防抖）+ 服务器静默同步
@@ -174,7 +185,9 @@ src/
 │   ├── registry.tsx         模板注册 + CSS 聚合
 │   ├── types.ts             TemplateDefinition 契约
 │   ├── industrial/          pages.tsx + styles.ts（原版 + 双页）
-│   └── minimal/             MinimalPage.tsx + styles.ts
+│   ├── minimal/             MinimalPage.tsx + styles.ts
+│   ├── moonlight/           MoonlightPage.tsx + styles.ts（暗底海报）
+│   └── quiet/               QuietPage.tsx + styles.ts（纸白规格表）
 ├── components/              Accordion / fields / TemplatePicker / LibraryModal
 ├── sections/                8 个编辑面板
 ├── lib/                     store / overflow / backend / exporters / migrate
@@ -191,6 +204,33 @@ scripts/mcp-smoke.mjs        真实 HTTP 冒烟
 - 打印：A4、边距「无」、勾选「背景图形」；多页模板每页自动分页。
 - 字体使用系统自带：DIN Condensed、HarmonyOS Sans SC、SF Mono（含 Arial Narrow / PingFang 回退）。
 - 导出的 HTML 与发布页不依赖本项目 JS/CSS，可独立打开与二次分发。
+
+## 桌面版（Tauri）
+
+Tauri 只提供 WebView，而本项目是 Node 全栈服务（Route Handlers + 文件存储 + MCP）。
+因此桌面壳内置一份 Node 运行时：启动时挑一个空闲端口拉起 `vinext start`，等端口就绪再开窗口，
+退出时杀掉子进程。
+
+```bash
+npm run desktop:runtime   # 构建 + 组装 runtime/（node + node_modules + dist，约 250MB）
+npm run desktop:build     # 上一步 + tauri build → .app / .dmg
+npm run desktop:dev       # 只调壳：窗口指向已在跑的 http://localhost:5173
+```
+
+产物：`src-tauri/target/release/bundle/{macos,dmg}`。
+
+- `runtime/` 里的 node 会按宿主架构 `lipo -thin`，并剔除只在构建期用到的包（typescript / webpack / esbuild / @tauri-apps 等）；组装脚本自带一次「起服务 + 拉页面」的冒烟，失败即中断打包。
+- 应用数据目录：`~/Library/Application Support/dev.linzhiyuan.resume-studio`（文档库与 `server.log`）。
+- 已知限制：macOS 的 WKWebView 不支持 `window.print()`，桌面版导出 PDF 请走「导出 HTML」再在浏览器打印。
+
+## CI（GitHub Actions）
+
+`.github/workflows/desktop.yml`：
+
+- `verify`：`npm run check` + `npm test`（ubuntu）
+- `bundle`：矩阵构建 **macOS arm64**（`.app` + `.dmg`）与 **Windows x64**（NSIS `.exe`），产物上传到 Actions artifacts（保留 30 天）
+
+触发方式：手动 `workflow_dispatch`、push 到 `master`/`main` 且改动 `src-tauri/**` 等桌面相关路径、或打 `v*` tag。
 
 ## 说明
 

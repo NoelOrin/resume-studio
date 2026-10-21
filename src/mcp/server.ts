@@ -6,7 +6,7 @@ import { registerTools } from "./tools";
 
 const INSTRUCTIONS = `Resume Studio 是一个多模板简历编辑器。你在这里可以读写真实简历文档并产出可直接分发的 HTML。
 
-可用模板（templateId）：industrial（工业标签单页）、industrial-duplex（工业标签双页）、minimal（极简单页）。
+可用模板（templateId）：industrial（工业标签单页）、industrial-duplex（工业标签双页）、minimal（极简单页）、moonlight（月光海报单页，暗底 + Kiwi 绿）、quiet（色卡规格表单页，纸白印刷风）。
 
 推荐工作流：
 1. list_resumes 找到目标文档（返回 id / 标题 / 更新时间 / 模板）。

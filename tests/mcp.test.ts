@@ -87,7 +87,7 @@ test("MCP client can use tools, resources and prompts end to end", async () => {
 
     const templatesResource = await client.readResource({ uri: "resume://templates" });
     assert.ok("text" in templatesResource.contents[0]);
-    assert.equal(JSON.parse(templatesResource.contents[0].text).templates.length, 3);
+    assert.equal(JSON.parse(templatesResource.contents[0].text).templates.length, 5);
 
     const prompt = await client.getPrompt({ name: "polish_resume", arguments: { resumeId: id } });
     assert.equal(prompt.messages.length, 1);

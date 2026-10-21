@@ -9,3 +9,11 @@ next-env.d.ts
 # local resume storage (vinext server)
 .data/
 *.tsbuildinfo
+
+# desktop packaging
+/runtime/
+/.runtime-smoke/
+/src-tauri/target/
+
+# tauri generated
+/src-tauri/gen/

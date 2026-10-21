@@ -4,6 +4,10 @@ import { IndustrialPage } from "./industrial/pages";
 import { INDUSTRIAL_CSS } from "./industrial/styles";
 import { MinimalPage } from "./minimal/MinimalPage";
 import { MINIMAL_CSS } from "./minimal/styles";
+import { MoonlightPage } from "./moonlight/MoonlightPage";
+import { MOONLIGHT_CSS } from "./moonlight/styles";
+import { QuietPage } from "./quiet/QuietPage";
+import { QUIET_CSS } from "./quiet/styles";
 
 /**
  * Template registry. To add a template:
@@ -26,6 +30,16 @@ export const templates: TemplateDefinition[] = [
     ...TEMPLATE_CATALOG[2],
     css: MINIMAL_CSS,
     render: (data) => <MinimalPage data={data} />,
+  },
+  {
+    ...TEMPLATE_CATALOG[3],
+    css: MOONLIGHT_CSS,
+    render: (data) => <MoonlightPage data={data} />,
+  },
+  {
+    ...TEMPLATE_CATALOG[4],
+    css: QUIET_CSS,
+    render: (data) => <QuietPage data={data} />,
   },
 ];
 

@@ -32,6 +32,24 @@ export const TEMPLATE_CATALOG: TemplateMeta[] = [
     accent: "#111111",
     tags: ["单页", "极简", "编辑排版"],
   },
+  {
+    id: "moonlight",
+    name: "MOONLIGHT",
+    nameZh: "月光海报",
+    description: "夜行海报式版面：巨月与城市剪影、彩纸碎屑、三行压缩巨字，Kiwi 绿点睛。",
+    pages: 1,
+    accent: "#97F11D",
+    tags: ["单页", "海报", "高视觉"],
+  },
+  {
+    id: "quiet",
+    name: "QUIET SPEC",
+    nameZh: "色卡规格表",
+    description: "以色卡为母版的印刷规格表：纸白、严格网格、编号索引，Kiwi 只做线与编号。",
+    pages: 1,
+    accent: "#97F11D",
+    tags: ["单页", "极简", "印刷"],
+  },
 ];
 
 export function catalogEntry(id: string | undefined): TemplateMeta {

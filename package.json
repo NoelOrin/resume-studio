@@ -10,7 +10,11 @@
     "start": "vinext start",
     "check": "tsc --noEmit",
     "test": "tsx --tsconfig tsconfig.test.json --test tests/*.test.ts",
-    "mcp:smoke": "node scripts/mcp-smoke.mjs"
+    "preview:tpl": "tsx --tsconfig tsconfig.test.json scripts/template-preview.tsx",
+    "mcp:smoke": "node scripts/mcp-smoke.mjs",
+    "desktop:runtime": "node scripts/prepare-desktop-runtime.mjs",
+    "desktop:dev": "RESUME_DEV_URL=http://localhost:5173 tauri dev",
+    "desktop:build": "npm run desktop:runtime && tauri build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
@@ -21,6 +25,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.12.3",
     "@types/node": "^24.0.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

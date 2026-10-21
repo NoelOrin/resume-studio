@@ -1,0 +1,155 @@
+#!/usr/bin/env node
+/**
+ * Assemble the Node runtime that ships inside the Tauri app bundle.
+ *
+ *   node scripts/prepare-desktop-runtime.mjs          # build + assemble
+ *   node scripts/prepare-desktop-runtime.mjs --skip-build
+ *
+ * Layout (copied into `Resume Studio.app/Contents/Resources/runtime`):
+ *   runtime/node                       Node binary (symlink resolved)
+ *   runtime/package.json               project manifest
+ *   runtime/dist/                      vinext production build
+ *   runtime/node_modules/              runtime dependencies
+ *
+ * The desktop shell starts `node node_modules/vinext/dist/cli.js start --port <n>`
+ * with cwd = runtime dir, so everything must sit relative to it.
+ */
+import { cpSync, existsSync, mkdirSync, readdirSync, realpathSync, rmSync, statSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import path from "node:path";
+import process from "node:process";
+
+const root = path.resolve(import.meta.dirname, "..");
+const runtime = path.join(root, "runtime");
+const skipBuild = process.argv.includes("--skip-build");
+
+const log = (msg) => console.log(`\x1b[32m▸\x1b[0m ${msg}`);
+
+if (!skipBuild) {
+  log("building production bundle (npm run build)");
+  execFileSync("npm", ["run", "build"], { cwd: root, stdio: "inherit" });
+}
+
+for (const required of ["dist", "node_modules/vinext/dist/cli.js", "package.json"]) {
+  if (!existsSync(path.join(root, required))) {
+    console.error(`✗ missing ${required} — run \`npm run build\` first`);
+    process.exit(1);
+  }
+}
+
+log("cleaning runtime/");
+rmSync(runtime, { recursive: true, force: true });
+mkdirSync(runtime, { recursive: true });
+
+log("copying node binary");
+const isWin = process.platform === "win32";
+const nodeName = isWin ? "node.exe" : "node";
+const nodeReal = realpathSync(process.execPath);
+cpSync(nodeReal, path.join(runtime, nodeName));
+// Homebrew ships a universal node (~227MB). Thin it to the host arch unless
+// a universal build was explicitly requested.
+if (process.platform === "darwin" && !process.argv.includes("--universal")) {
+  try {
+    execFileSync("lipo", [
+      "-thin",
+      process.arch === "arm64" ? "arm64" : "x86_64",
+      path.join(runtime, nodeName),
+      "-output",
+      path.join(runtime, nodeName),
+    ]);
+    log(`thinned node to ${process.arch}`);
+  } catch {
+    log("lipo unavailable — keeping universal node");
+  }
+}
+if (!isWin) execFileSync("chmod", ["+x", path.join(runtime, nodeName)]);
+
+log("copying package.json");
+cpSync(path.join(root, "package.json"), path.join(runtime, "package.json"));
+
+log("copying dist/");
+cpSync(path.join(root, "dist"), path.join(runtime, "dist"), { recursive: true });
+
+log("copying node_modules/ (this is the big one)");
+cpSync(path.join(root, "node_modules"), path.join(runtime, "node_modules"), {
+  recursive: true,
+  dereference: true,
+  filter: (src) => !src.includes(`${path.sep}.cache${path.sep}`) && !src.endsWith(`${path.sep}.cache`),
+});
+
+// Build-time only packages. The packaged server never imports these; the smoke
+// test below fails loudly if that assumption ever stops holding.
+log("pruning build-only packages");
+const PRUNE = [
+  "typescript",
+  "@tauri-apps",
+  "webpack",
+  "@rolldown",
+  "@img",
+  "esbuild",
+  "@esbuild",
+  ".cache",
+];
+for (const name of PRUNE) {
+  rmSync(path.join(runtime, "node_modules", name), { recursive: true, force: true });
+}
+
+// Smoke test: boot the packaged server once before handing it to Tauri.
+log("smoke-testing packaged server");
+const port = 3191;
+const probeData = path.join(root, ".runtime-smoke");
+rmSync(probeData, { recursive: true, force: true });
+
+const child = spawn(
+  path.join(runtime, nodeName),
+  [path.join(runtime, "node_modules/vinext/dist/cli.js"), "start", "--port", String(port)],
+  {
+    cwd: runtime,
+    env: { ...process.env, NODE_ENV: "production", RESUME_DATA_DIR: probeData },
+    stdio: ["ignore", "pipe", "pipe"],
+  },
+);
+
+let output = "";
+child.stdout.on("data", (d) => (output += d));
+child.stderr.on("data", (d) => (output += d));
+
+const deadline = Date.now() + 25_000;
+let ok = false;
+while (Date.now() < deadline) {
+  try {
+    const health = await fetch(`http://127.0.0.1:${port}/api/health`);
+    const page = await fetch(`http://127.0.0.1:${port}/`);
+    const html = await page.text();
+    if (health.ok && page.ok && html.includes("RESUME STUDIO")) {
+      const body = await health.json();
+      log(`server healthy · templates: ${body.templates?.join(", ")}`);
+      ok = true;
+      break;
+    }
+  } catch {
+    /* not up yet */
+  }
+  await new Promise((r) => setTimeout(r, 250));
+}
+
+child.kill("SIGKILL");
+rmSync(probeData, { recursive: true, force: true });
+
+if (!ok) {
+  console.error("✗ packaged server did not become healthy:\n" + output.slice(-2000));
+  process.exit(1);
+}
+
+const size = (dir) => {
+  let bytes = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) bytes += size(full);
+    else if (entry.isFile()) bytes += statSync(full).size;
+  }
+  return bytes;
+};
+const human = (b) => `${(b / 1024 / 1024).toFixed(0)}MB`;
+log(`runtime/ ready — ${human(size(runtime))} total`);
+
