@@ -230,8 +230,11 @@ npm run desktop:dev       # 只调壳：窗口指向已在跑的 http://localhos
 
 - `verify`：`npm run check` + `npm test`（ubuntu）
 - `bundle`：矩阵构建 **macOS arm64**（`.app` + `.dmg`）与 **Windows x64**（NSIS `.exe`），产物上传到 Actions artifacts（保留 30 天）
+- `release`：打 `v*` tag 时自动创建 **GitHub Release**，附上三个安装包（`.dmg` / `.app.zip` / `-setup.exe`），发行说明按提交自动生成
 
 触发方式：手动 `workflow_dispatch`、push 到 `master`/`main` 且改动 `src-tauri/**` 等桌面相关路径、或打 `v*` tag。
+
+发版：`git tag v2.1.0 && git push origin v2.1.0` —— 构建完成后自动出现在仓库 Releases 页面。
 macOS 任务在打包后会**把 .app 复制到 /tmp 并真启动一次**、拉 `/api/health` 验证，避免「job 绿但产物打不开」。
 
 ## 说明

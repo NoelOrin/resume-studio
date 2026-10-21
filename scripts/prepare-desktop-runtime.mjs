@@ -80,6 +80,8 @@ const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
 execFileSync(npmCmd, ["ci", "--omit=dev", "--no-audit", "--no-fund"], {
   cwd: runtime,
   stdio: "inherit",
+  // Node >=18 refuses to spawn .cmd shims without a shell on Windows.
+  shell: process.platform === "win32",
 });
 
 // Smoke test: boot the packaged server once before handing it to Tauri.
