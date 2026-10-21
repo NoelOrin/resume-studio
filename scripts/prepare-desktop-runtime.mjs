@@ -15,7 +15,7 @@
  * with cwd = runtime dir, so everything must sit relative to it.
  */
 import { cpSync, existsSync, mkdirSync, readdirSync, realpathSync, rmSync, statSync } from "node:fs";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, execSync, spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -76,13 +76,52 @@ cpSync(path.join(root, "dist"), path.join(runtime, "dist"), { recursive: true })
 // risks removing transitive runtime deps (e.g. rolldown needs @rolldown/pluginutils).
 log("installing production dependencies (npm ci --omit=dev)");
 cpSync(path.join(root, "package-lock.json"), path.join(runtime, "package-lock.json"));
-const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-execFileSync(npmCmd, ["ci", "--omit=dev", "--no-audit", "--no-fund"], {
-  cwd: runtime,
-  stdio: "inherit",
-  // Node >=18 refuses to spawn .cmd shims without a shell on Windows.
-  shell: process.platform === "win32",
-});
+// Node >=18 refuses to spawn the `npm.cmd` shim without a shell on Windows.
+if (process.platform === "win32") {
+  execSync("npm ci --omit=dev --no-audit --no-fund", { cwd: runtime, stdio: "inherit" });
+} else {
+  execFileSync("npm", ["ci", "--omit=dev", "--no-audit", "--no-fund"], {
+    cwd: runtime,
+    stdio: "inherit",
+  });
+}
+
+// Windows keeps file handles open for a moment after kill(); never let temp
+// cleanup turn a successful smoke test into a failed build.
+function cleanup(dir) {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 150 });
+      return;
+    } catch (err) {
+      if (attempt === 5) {
+        log(`temp cleanup skipped (${err.code ?? err.message})`);
+        return;
+      }
+      // sync sleep without spawning a shell (timeout/sleep differ per platform)
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+    }
+  }
+}
+
+function killAndWait(child) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const done = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+    child.once("exit", done);
+    try {
+      child.kill("SIGKILL");
+    } catch {
+      done();
+    }
+    setTimeout(done, 5000);
+  });
+}
 
 // Smoke test: boot the packaged server once before handing it to Tauri.
 // IMPORTANT: run it from an isolated copy outside the project tree. Node walks up
@@ -93,7 +132,7 @@ const port = 3191;
 const probeRoot = path.join(os.tmpdir(), `resume-runtime-smoke-${process.pid}`);
 const probeRuntime = path.join(probeRoot, "runtime");
 const probeData = path.join(probeRoot, "data");
-rmSync(probeRoot, { recursive: true, force: true });
+cleanup(probeRoot);
 cpSync(runtime, probeRuntime, { recursive: true, dereference: true });
 
 const child = spawn(
@@ -129,8 +168,8 @@ while (Date.now() < deadline) {
   await new Promise((r) => setTimeout(r, 250));
 }
 
-child.kill("SIGKILL");
-rmSync(probeRoot, { recursive: true, force: true });
+await killAndWait(child);
+cleanup(probeRoot);
 
 if (!ok) {
   console.error("✗ packaged server did not become healthy:\n" + output.slice(-2000));
