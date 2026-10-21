@@ -184,6 +184,54 @@ textarea {
   background: #111;
   color: #fff;
 }
+.ed-zoomctl {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.ed-zoomstep {
+  width: 18px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: var(--ed-mono);
+  font-size: 12px;
+  line-height: 1;
+  color: #333;
+}
+.ed-zoomstep:hover {
+  background: #efefe8;
+}
+.ed-zoomslider {
+  width: 74px;
+  height: 22px;
+  margin: 0 2px;
+  accent-color: var(--ed-blue);
+  cursor: pointer;
+}
+.ed-zoompct {
+  min-width: 38px;
+  padding: 5px 4px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--ed-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: #444;
+  text-align: right;
+}
+.ed-zoompct:hover {
+  background: #efefe8;
+}
+.ed-zoompct.is-fit {
+  color: var(--ed-muted);
+}
 
 /* ---------------- buttons ---------------- */
 .ed-btn {
