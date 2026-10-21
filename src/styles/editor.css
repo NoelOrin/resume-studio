@@ -736,12 +736,12 @@ textarea {
 .ed-stage {
   position: relative;
   overflow: auto;
+  overscroll-behavior: contain;
   background: #dedfd9;
   background-image: radial-gradient(rgba(0, 0, 0, 0.09) 0.6px, transparent 0.6px);
   background-size: 14px 14px;
   display: flex;
   flex-direction: column;
-  align-items: center;
   min-height: 0;
 }
 .ed-stage-inner {
@@ -750,16 +750,29 @@ textarea {
   align-items: center;
   gap: 12px;
   padding: 34px 24px 44px;
+  /* Auto margins keep the sheet centered while it fits, and collapse to 0 once
+     it overflows — so the top/left of a 400% sheet stays scrollable. */
   margin: auto;
+  width: max-content;
+  min-width: 100%;
 }
 .ed-canvas {
   position: relative;
   background: #fff;
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.1), 0 26px 60px rgba(0, 0, 0, 0.22);
 }
+.ed-stage.is-panning {
+  cursor: grabbing;
+}
+.ed-stage.is-panning .tpl-page {
+  user-select: none;
+}
 .ed-sheet-wrap {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 210mm;
+  height: 297mm;
   transform-origin: top left;
 }
 .ed-canvas .tpl-page {
@@ -1164,7 +1177,8 @@ textarea {
   .ed-brand-txt span {
     display: none;
   }
-  .ed-zoomgroup {
+  .ed-zoomgroup .ed-zoomslider,
+  .ed-zoomgroup .ed-zoombtn {
     display: none;
   }
 }
