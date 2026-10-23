@@ -10,6 +10,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+      // A published resume is static markup with inlined CSS and `data:` backgrounds
+      // (see src/lib/exporters.ts). `sandbox` plus `default-src 'none'` makes sure a
+      // hand-posted `/api/publish` payload can never execute script or reach the
+      // editor's localStorage, which shares this origin.
+      "content-security-policy":
+        "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; base-uri 'none'; form-action 'none'",
     },
   });
 }

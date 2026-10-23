@@ -24,12 +24,18 @@ export async function PUT(request: Request, { params }: Ctx) {
   }
   if (!body?.data) return Response.json({ error: "data required" }, { status: 400 });
 
-  const record = await writeDoc(id, body.title ?? "未命名简历", body.data);
+  const record = await writeDoc(id, body.title ?? "未命名简历", body.data).catch((error: unknown) => {
+    // `writeDoc` normalises through `migrateDocument` and rejects non-documents;
+    // that is a bad request, not a server fault.
+    return Response.json({ error: (error as Error).message || "invalid document" }, { status: 400 });
+  });
+  if (record instanceof Response) return record;
   return Response.json({ ok: true, id: record.id, updatedAt: record.updatedAt });
 }
 
 export async function DELETE(_request: Request, { params }: Ctx) {
   const { id } = await params;
+  if (!isValidId(id)) return Response.json({ error: "invalid id" }, { status: 400 });
   await deleteDoc(id);
   return Response.json({ ok: true });
 }
