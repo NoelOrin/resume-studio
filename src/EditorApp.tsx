@@ -583,10 +583,10 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
               onSlide={setManual}
             />
 
-            <Btn small onClick={() => setTemplateOpen(true)} title="切换模板">
-              模板
-            </Btn>
-            <div className="ed-group">
+            <div className="ed-group ed-group--io">
+              <Btn small onClick={() => setTemplateOpen(true)} title="切换模板">
+                模板
+              </Btn>
               <Btn small variant="ghost" onClick={() => fileRef.current?.click()}>
                 导入
               </Btn>
@@ -598,34 +598,39 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
               </Btn>
             </div>
 
-            <Btn
-              small
-              onClick={() => {
-                notify("打印时请勾选「背景图形 / Background graphics」");
-                window.setTimeout(() => window.print(), 400);
-              }}
-              title="打印 / 导出 PDF（全部页面）"
-            >
-              打印
-            </Btn>
-            <Btn small onClick={saveToServer} disabled={busy}>
-              保存
-            </Btn>
-            <Btn small variant="primary" onClick={publish} disabled={busy}>
-              发布
-            </Btn>
-            <Btn small variant="ghost" onClick={openLibrary}>
-              文档库
-            </Btn>
-            <Btn
-              small
-              variant="ghost"
-              onClick={() => setSettingsOpen(true)}
-              title={updateCheck?.hasUpdate ? `设置 · 有新版本 ${formatVersionLabel(updateCheck.latest)}` : "设置"}
-            >
-              设置
-              {updateCheck?.hasUpdate && <i className="ed-dot-badge" aria-hidden="true" />}
-            </Btn>
+            <div className="ed-group">
+              <Btn
+                small
+                onClick={() => {
+                  notify("打印时请勾选「背景图形 / Background graphics」");
+                  window.setTimeout(() => window.print(), 400);
+                }}
+                title="打印 / 导出 PDF（全部页面）"
+              >
+                打印
+              </Btn>
+              <Btn small onClick={saveToServer} disabled={busy}>
+                保存
+              </Btn>
+              <Btn small variant="primary" onClick={publish} disabled={busy}>
+                发布
+              </Btn>
+            </div>
+
+            <div className="ed-group">
+              <Btn small variant="ghost" onClick={openLibrary}>
+                文档库
+              </Btn>
+              <Btn
+                small
+                variant="ghost"
+                onClick={() => setSettingsOpen(true)}
+                title={updateCheck?.hasUpdate ? `设置 · 有新版本 ${formatVersionLabel(updateCheck.latest)}` : "设置"}
+              >
+                设置
+                {updateCheck?.hasUpdate && <i className="ed-dot-badge" aria-hidden="true" />}
+              </Btn>
+            </div>
           </div>
         </header>
 
@@ -650,11 +655,11 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
                 </Accordion>
               ))}
             </EditContext.Provider>
+          </div>
 
-            <div className="ed-side-foot">
-              <span>{template.name} · {pageTotal}P</span>
-              <span>{online ? ".data 可写" : "后端离线"}</span>
-            </div>
+          <div className="ed-side-foot">
+            <span>{template.name} · {pageTotal}P</span>
+            <span>{online ? ".data 可写" : "后端离线"}</span>
           </div>
         </aside>
 
@@ -707,7 +712,17 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
                 </button>
                 <span className="ed-pager-dots">
                   {Array.from({ length: pageTotal }, (_, i) => (
-                    <i key={i} className={i === page ? "is-on" : ""} onClick={() => setPage(i)} />
+                    <i
+                      key={i}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`第 ${i + 1} 页`}
+                      className={i === page ? "is-on" : ""}
+                      onClick={() => setPage(i)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") setPage(i);
+                      }}
+                    />
                   ))}
                 </span>
               </div>
