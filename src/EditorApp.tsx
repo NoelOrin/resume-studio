@@ -5,6 +5,7 @@ import type { ChangeEvent } from "react";
 import { Accordion } from "./components/Accordion";
 import { LibraryModal } from "./components/LibraryModal";
 import { SettingsModal, formatVersionLabel } from "./components/SettingsModal";
+import { TemplateBoundary } from "./components/TemplateBoundary";
 import { TemplatePicker } from "./components/TemplatePicker";
 import { ZoomControl } from "./components/ZoomControl";
 import { Btn, EditContext } from "./components/fields";
@@ -682,7 +683,9 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
                 style={{ width: SHEET_W, height: SHEET_H, transform: `scale(${scale})` }}
               >
                 <div className="ed-page-host" ref={pageRef}>
-                  {template.render(data, page)}
+                  <TemplateBoundary label="preview" resetKey={`${template.id}:${page}:${savedAt ?? 0}`}>
+                    {template.render(data, page)}
+                  </TemplateBoundary>
                 </div>
               </div>
             </div>
@@ -723,7 +726,10 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
 
       <div className="ed-export-layer" aria-hidden>
         <div className="tpl-export" ref={exportRef}>
-          {exportPages}
+          {/* A failing page must not take the editor down with it: export degrades, editing survives. */}
+          <TemplateBoundary label="export" resetKey={`export:${template.id}:${savedAt ?? 0}`}>
+            {exportPages}
+          </TemplateBoundary>
         </div>
       </div>
 

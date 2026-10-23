@@ -2,6 +2,7 @@ import { getTemplate, templates } from "../templates/registry";
 import { pageCountOf } from "../templates/types";
 import type { ResumeData } from "../types";
 import { Btn } from "./fields";
+import { TemplateBoundary } from "./TemplateBoundary";
 
 const THUMB_W = 124;
 const SHEET_W = 793.7008;
@@ -50,9 +51,12 @@ export function TemplatePicker({
                 }}
               >
                 <div className="ed-tpl-thumb" style={{ width: THUMB_W, height: THUMB_H }}>
-                  <div className="ed-tpl-mini" style={{ transform: `scale(${THUMB_SCALE})` }}>
-                    {t.render(data, 0)}
-                  </div>
+                  {/* One unrenderable template must not blank the whole picker. */}
+                  <TemplateBoundary label={`thumb:${t.id}`} compact>
+                    <div className="ed-tpl-mini" style={{ transform: `scale(${THUMB_SCALE})` }}>
+                      {t.render(data, 0)}
+                    </div>
+                  </TemplateBoundary>
                 </div>
                 <div className="ed-tpl-info">
                   <div className="ed-tpl-name">
