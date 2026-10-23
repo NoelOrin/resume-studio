@@ -4,7 +4,7 @@ export const MCP_PATH = "/api/mcp";
 
 export const MCP_SERVER_INFO = {
   name: "resume-studio",
-  version: "2.1.0",
+  version: "2.2.0",
 } as const;
 
 /** Streamable HTTP body cap (applies before JSON parsing). */
