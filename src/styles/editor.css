@@ -771,8 +771,8 @@ textarea {
   position: absolute;
   top: 0;
   left: 0;
-  width: 210mm;
-  height: 297mm;
+  /* Size comes from SHEET_W/SHEET_H in EditorApp.tsx so the wrapper can never
+     drift from the .ed-canvas box it sits in. */
   transform-origin: top left;
 }
 .ed-canvas .tpl-page {

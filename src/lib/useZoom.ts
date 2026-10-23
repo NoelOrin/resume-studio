@@ -5,17 +5,19 @@ import { snapZoom, stepZoom as stepValue, type ZoomMode } from "./zoom";
 
 const STORAGE_KEY = "resume-studio:zoom";
 
-type Stored = { mode: ZoomMode; value: number };
+type Stored = { mode: "manual"; value: number } | { mode: "fit" };
+
+type StoredJson = { mode?: ZoomMode; value?: number };
 
 function readStored(): Stored | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<Stored>;
+    const parsed = JSON.parse(raw) as StoredJson;
     if (parsed.mode === "manual" && typeof parsed.value === "number") {
       return { mode: "manual", value: snapZoom(parsed.value) };
     }
-    if (parsed.mode === "fit") return { mode: "fit", value: 1 };
+    if (parsed.mode === "fit") return { mode: "fit" };
     return null;
   } catch {
     return null;
@@ -30,6 +32,7 @@ export function useZoom(fit: number) {
   const [mode, setMode] = useState<ZoomMode>("fit");
   const [value, setValue] = useState(1);
   const timer = useRef<number | undefined>(undefined);
+  const pending = useRef<Stored | null>(null);
 
   // Restore after mount so the SSR markup and first client render agree.
   useEffect(() => {
@@ -39,18 +42,30 @@ export function useZoom(fit: number) {
     if (stored.mode === "manual") setValue(stored.value);
   }, []);
 
-  const persist = useCallback((next: Stored) => {
+  const flush = useCallback(() => {
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        /* storage unavailable: keep in-memory only */
-      }
-    }, 150);
+    timer.current = undefined;
+    const next = pending.current;
+    pending.current = null;
+    if (!next) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      /* storage unavailable: keep in-memory only */
+    }
   }, []);
 
-  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const persist = useCallback(
+    (next: Stored) => {
+      pending.current = next;
+      window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(flush, 150);
+    },
+    [flush],
+  );
+
+  // Flush on unmount: a zoom in the last 150ms would otherwise be dropped.
+  useEffect(() => flush, [flush]);
 
   const scale = mode === "fit" ? fit : value;
 
@@ -66,7 +81,7 @@ export function useZoom(fit: number) {
 
   const setFit = useCallback(() => {
     setMode("fit");
-    persist({ mode: "fit", value: 1 });
+    persist({ mode: "fit" });
   }, [persist]);
 
   const zoomBy = useCallback(

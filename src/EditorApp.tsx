@@ -8,7 +8,7 @@ import { TemplatePicker } from "./components/TemplatePicker";
 import { ZoomControl } from "./components/ZoomControl";
 import { Btn, EditContext } from "./components/fields";
 import { useZoom } from "./lib/useZoom";
-import { wheelZoom } from "./lib/zoom";
+import { ZOOM_MIN, anchorScroll, normalizeWheelDelta, wheelZoom, zoomAnchor, type ZoomAnchor } from "./lib/zoom";
 import { defaultResume } from "./data/defaultResume";
 import { useResumeStore } from "./lib/useResumeStore";
 import { usePageOverflow } from "./lib/usePageOverflow";
@@ -76,8 +76,10 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
   const fileRef = useRef<HTMLInputElement>(null);
   const toastTimer = useRef<number | undefined>(undefined);
   const scaleRef = useRef(scale);
-  const anchorRef = useRef<{ screenX: number; screenY: number; sheetX: number; sheetY: number } | null>(null);
-  const panRef = useRef<{ x: number; y: number; left: number; top: number; moved: boolean } | null>(null);
+  const anchorRef = useRef<ZoomAnchor | null>(null);
+  const panRef = useRef<{ pointerId: number; x: number; y: number; left: number; top: number; moved: boolean } | null>(
+    null,
+  );
   const panMoved = useRef(false);
   const wheelAccum = useRef(0);
   const wheelPoint = useRef({ x: 0, y: 0 });
@@ -143,7 +145,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
     const measure = () => {
       const w = el.clientWidth - 96;
       const h = el.clientHeight - 150;
-      setFit(Math.max(0.2, Math.min(1, w / SHEET_W, h / SHEET_H)));
+      setFit(Math.max(ZOOM_MIN, Math.min(1, w / SHEET_W, h / SHEET_H)));
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -158,22 +160,27 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
   /* ---------------- free zoom ---------------- */
   const anchoredZoom = useCallback(
     (next: number, clientX: number, clientY: number) => {
+      // Bail out when the clamped value did not move: React skips the render,
+      // the layout effect below never runs, and a stale anchor would then be
+      // consumed by the next unrelated scale change (slider, resize-driven fit).
+      if (next === scale) return;
       const canvas = canvasRef.current;
       if (canvas) {
-        const rect = canvas.getBoundingClientRect();
         // Remember where the pointer sits on the unscaled sheet, then restore
         // that point under the pointer after the new scale has rendered.
-        anchorRef.current = {
-          screenX: clientX,
-          screenY: clientY,
-          sheetX: (clientX - rect.left) / scale,
-          sheetY: (clientY - rect.top) / scale,
-        };
+        anchorRef.current = zoomAnchor(clientX, clientY, canvas.getBoundingClientRect(), scale);
       }
       setManual(next);
     },
     [scale, setManual],
   );
+
+  // The wheel listener must stay subscribed across scale changes, so it reads
+  // the latest callback through a ref instead of re-registering every render.
+  const anchoredZoomRef = useRef(anchoredZoom);
+  useIsoLayoutEffect(() => {
+    anchoredZoomRef.current = anchoredZoom;
+  });
 
   useIsoLayoutEffect(() => {
     scaleRef.current = scale;
@@ -183,9 +190,12 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
     const stage = stageRef.current;
     const canvas = canvasRef.current;
     if (!stage || !canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    stage.scrollLeft += rect.left + anchor.sheetX * scale - anchor.screenX;
-    stage.scrollTop += rect.top + anchor.sheetY * scale - anchor.screenY;
+    const next = anchorScroll(anchor, canvas.getBoundingClientRect(), scale, {
+      left: stage.scrollLeft,
+      top: stage.scrollTop,
+    });
+    stage.scrollLeft = next.left;
+    stage.scrollTop = next.top;
   }, [scale]);
 
   // Native non-passive listener: React's onWheel is passive and cannot preventDefault.
@@ -195,7 +205,8 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
     const onWheel = (event: WheelEvent) => {
       if (!(event.ctrlKey || event.metaKey)) return;
       event.preventDefault();
-      wheelAccum.current += event.deltaY;
+      // Normalize per event: deltaMode is per event, and Firefox mice report lines.
+      wheelAccum.current += normalizeWheelDelta(event.deltaY, event.deltaMode, el.clientHeight);
       wheelPoint.current = { x: event.clientX, y: event.clientY };
       if (wheelRaf.current !== undefined) return;
       wheelRaf.current = window.requestAnimationFrame(() => {
@@ -203,7 +214,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
         const deltaY = wheelAccum.current;
         wheelAccum.current = 0;
         if (!deltaY) return;
-        anchoredZoom(wheelZoom(scaleRef.current, deltaY), wheelPoint.current.x, wheelPoint.current.y);
+        anchoredZoomRef.current(wheelZoom(scaleRef.current, deltaY), wheelPoint.current.x, wheelPoint.current.y);
       });
     };
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -212,16 +223,21 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
       if (wheelRaf.current !== undefined) window.cancelAnimationFrame(wheelRaf.current);
       wheelRaf.current = undefined;
     };
-  }, [anchoredZoom]);
+  }, []);
 
   /* ---------------- drag-to-pan ---------------- */
   const onStagePointerDown = (event: React.PointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
-    if ((event.target as HTMLElement).closest(".ed-pager, .ed-warn, button, input")) return;
+    // Touch already pans through native overflow scrolling; driving scrollLeft
+    // as well makes the two fight each other.
+    if (event.pointerType === "touch") return;
+    const target = event.target as HTMLElement;
+    if (target.closest(".ed-pager, .ed-warn, button, input, textarea, select, a, [contenteditable]")) return;
     const stage = stageRef.current;
     if (!stage) return;
     if (stage.scrollWidth <= stage.clientWidth + 1 && stage.scrollHeight <= stage.clientHeight + 1) return;
     panRef.current = {
+      pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
       left: stage.scrollLeft,
@@ -234,7 +250,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
   const onStagePointerMove = (event: React.PointerEvent<HTMLElement>) => {
     const pan = panRef.current;
     const stage = stageRef.current;
-    if (!pan || !stage) return;
+    if (!pan || !stage || pan.pointerId !== event.pointerId) return;
     if (event.buttons === 0) {
       // pointer was released outside the stage before capture kicked in
       panRef.current = null;
@@ -259,6 +275,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
 
   const endPan = (event: React.PointerEvent<HTMLElement>) => {
     const pan = panRef.current;
+    if (pan && pan.pointerId !== event.pointerId) return;
     panRef.current = null;
     const stage = stageRef.current;
     if (!stage) return;
@@ -281,7 +298,9 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
 
   const onStageDoubleClick = (event: React.MouseEvent) => {
     const target = event.target as HTMLElement;
-    if (target.closest(".tpl-page, .ed-pager, .ed-warn")) return;
+    // The sheet has no double-click action of its own, so fit on the whole
+    // stage; only the pager and the overflow banner keep their own gestures.
+    if (target.closest(".ed-pager, .ed-warn")) return;
     fitToView();
   };
 
@@ -644,7 +663,10 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
 
           <div className="ed-stage-inner">
             <div className="ed-canvas" ref={canvasRef} style={{ width: SHEET_W * scale, height: SHEET_H * scale }}>
-              <div className="ed-sheet-wrap" style={{ transform: `scale(${scale})` }}>
+              <div
+                className="ed-sheet-wrap"
+                style={{ width: SHEET_W, height: SHEET_H, transform: `scale(${scale})` }}
+              >
                 <div className="ed-page-host" ref={pageRef}>
                   {template.render(data, page)}
                 </div>
