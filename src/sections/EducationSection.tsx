@@ -1,5 +1,5 @@
 import { AddRow, Field, LineInput, Row } from '../components/fields'
-import { patchAt, removeAt } from '../lib/arrays'
+import { removeAt, replaceAt } from '../lib/arrays'
 import type { SectionProps } from './types'
 
 export function EducationSection({ data, update, mutate }: SectionProps) {
@@ -27,7 +27,7 @@ export function EducationSection({ data, update, mutate }: SectionProps) {
       <div className="ed-list">
         {e.items.map((item, i) => (
           <div className="ed-line" key={i}>
-            <LineInput value={item} onChange={(v) => setItems((list) => patchAt(list, i, v))} />
+            <LineInput value={item} onChange={(v) => setItems((list) => replaceAt(list, i, v))} />
             <button
               type="button"
               className="ed-icon ed-icon--del"

@@ -1,5 +1,5 @@
 import { AddRow, Area, Field, ItemBox, Row } from '../components/fields'
-import { move, patchAt, removeAt } from '../lib/arrays'
+import { move, patchAt, removeAt, replaceAt } from '../lib/arrays'
 import type { Job } from '../types'
 import type { SectionProps } from './types'
 
@@ -91,7 +91,7 @@ export function ExperienceSection({ data, update, mutate }: SectionProps) {
                   label={`要点 ${j + 1}`}
                   value={bullet}
                   rows={2}
-                  onChange={(v) => setBullets(i, (list) => patchAt(list, j, v))}
+                  onChange={(v) => setBullets(i, (list) => replaceAt(list, j, v))}
                 />
                 <button
                   type="button"

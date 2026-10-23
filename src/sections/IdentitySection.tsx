@@ -1,5 +1,5 @@
 import { AddRow, Field, LineInput, Row } from '../components/fields'
-import { move, patchAt, removeAt } from '../lib/arrays'
+import { move, patchAt, removeAt, replaceAt } from '../lib/arrays'
 import type { SectionProps } from './types'
 
 export function IdentitySection({ data, update, mutate }: SectionProps) {
@@ -39,7 +39,7 @@ export function IdentitySection({ data, update, mutate }: SectionProps) {
           <div className="ed-line" key={i}>
             <LineInput
               value={item}
-              onChange={(v) => setStatus((list) => patchAt(list, i, v))}
+              onChange={(v) => setStatus((list) => replaceAt(list, i, v))}
             />
             <button type="button" className="ed-icon ed-icon--del" onClick={() => mutStatus((list) => removeAt(list, i))}>
               ✕

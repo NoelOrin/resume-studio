@@ -1,5 +1,5 @@
 import { AddRow, Area, Field, LineInput, Row } from '../components/fields'
-import { patchAt, removeAt } from '../lib/arrays'
+import { removeAt, replaceAt } from '../lib/arrays'
 import type { SectionProps } from './types'
 
 export function FooterSection({ data, update, mutate }: SectionProps) {
@@ -25,7 +25,7 @@ export function FooterSection({ data, update, mutate }: SectionProps) {
             <LineInput
               className="ed-input ed-mono"
               value={step}
-              onChange={(v) => setSteps((list) => patchAt(list, i, v))}
+              onChange={(v) => setSteps((list) => replaceAt(list, i, v))}
             />
             <button
               type="button"
