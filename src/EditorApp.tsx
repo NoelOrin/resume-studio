@@ -10,8 +10,10 @@ import { TemplatePicker } from "./components/TemplatePicker";
 import { ZoomControl } from "./components/ZoomControl";
 import { Btn, EditContext } from "./components/fields";
 import { useZoom } from "./lib/useZoom";
+import { compareVersions } from "./lib/update";
 import { ZOOM_MIN, anchorScroll, normalizeWheelDelta, wheelZoom, zoomAnchor, type ZoomAnchor } from "./lib/zoom";
 import { defaultResume } from "./data/defaultResume";
+import { APP_VERSION } from "./lib/version";
 import { useResumeStore } from "./lib/useResumeStore";
 import { usePageOverflow } from "./lib/usePageOverflow";
 import { useUpdateCheck } from "./lib/useUpdateCheck";
@@ -73,7 +75,21 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
   const [toast, setToast] = useState<Toast>(null);
   const [syncedAt, setSyncedAt] = useState<number | null>(null);
 
-  const { state: updateState, check: updateCheck, error: updateError, checkNow } = useUpdateCheck();
+  const {
+    state: updateState,
+    check: updateCheck,
+    error: updateError,
+    checkNow,
+    pillLatest,
+  } = useUpdateCheck({
+    // Silent discovery only — manual checks happen with the dialog already open.
+    onAutoUpdate: (result) =>
+      notify(`发现新版本 ${formatVersionLabel(result.latest)} · 点「设置」查看更新说明`, "ok", 8000),
+  });
+  // Live check wins; otherwise fall back to the cached discovery so the pill
+  // survives reloads (it hides itself again once current >= cached latest).
+  const pillVersion = updateCheck?.ok && updateCheck.hasUpdate ? updateCheck.latest : pillLatest;
+  const showUpdatePill = Boolean(pillVersion && compareVersions(pillVersion, APP_VERSION) > 0);
 
   const stageRef = useRef<HTMLElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -95,10 +111,10 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
   const pageTotal = pageCountOf(template, data);
   const overflow = usePageOverflow(pageRef);
 
-  const notify = useCallback((msg: string, kind: "ok" | "err" = "ok") => {
+  const notify = useCallback((msg: string, kind: "ok" | "err" = "ok", ttl = 3000) => {
     setToast({ msg, kind });
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(null), 3000);
+    toastTimer.current = window.setTimeout(() => setToast(null), ttl);
   }, []);
 
   /* ---------------- hydration of per-document meta ---------------- */
@@ -546,7 +562,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
             </svg>
             <div className="ed-brand-txt">
               <b>RESUME STUDIO</b>
-              <span>vinext full-stack / 多模板</span>
+              <span>多模板简历编辑器 · v{APP_VERSION}</span>
             </div>
           </div>
 
@@ -618,6 +634,21 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
             </div>
 
             <div className="ed-group">
+              {showUpdatePill && pillVersion && (
+                <Btn
+                  small
+                  variant="notice"
+                  onClick={() => {
+                    setSettingsOpen(true);
+                    // The pill may come from the cached discovery; refresh so the
+                    // dialog shows live details instead of「尚未检查更新」.
+                    void checkNow();
+                  }}
+                  title={`最新版本 ${formatVersionLabel(pillVersion)} · 点击查看更新说明`}
+                >
+                  新版本 {formatVersionLabel(pillVersion)}
+                </Btn>
+              )}
               <Btn small variant="ghost" onClick={openLibrary}>
                 文档库
               </Btn>

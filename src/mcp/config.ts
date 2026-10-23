@@ -2,9 +2,10 @@
 
 export const MCP_PATH = "/api/mcp";
 
+/** Synced from package.json by `npm run version:sync` (pinned by tests/version-sync.test.ts). */
 export const MCP_SERVER_INFO = {
   name: "resume-studio",
-  version: "2.2.0",
+  version: "2.3.0",
 } as const;
 
 /** Streamable HTTP body cap (applies before JSON parsing). */

@@ -323,6 +323,16 @@ textarea {
   border-color: var(--ed-danger);
   color: var(--ed-paper);
 }
+.ed-btn--notice {
+  border-color: var(--ed-accent);
+  color: var(--ed-accent);
+  background: var(--ed-accent-wash);
+}
+.ed-btn--notice:hover:not(:disabled) {
+  background: var(--ed-accent);
+  border-color: var(--ed-accent);
+  color: var(--ed-paper);
+}
 .ed-btn--sm {
   padding: 5px 8px;
   font-size: var(--ed-fs-xs);

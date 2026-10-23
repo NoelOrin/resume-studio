@@ -1,6 +1,6 @@
 {
   "name": "resume-studio",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "private": true,
   "type": "module",
   "packageManager": "npm@11.12.1",
@@ -12,9 +12,11 @@
     "test": "tsx --tsconfig tsconfig.test.json --test tests/*.test.ts",
     "preview:tpl": "tsx --tsconfig tsconfig.test.json scripts/template-preview.tsx",
     "mcp:smoke": "node scripts/mcp-smoke.mjs",
+    "version:sync": "node scripts/sync-version.mjs",
+    "version:check": "node scripts/sync-version.mjs --check",
     "desktop:runtime": "node scripts/prepare-desktop-runtime.mjs",
     "desktop:dev": "RESUME_DEV_URL=http://localhost:5173 tauri dev",
-    "desktop:build": "npm run desktop:runtime && tauri build"
+    "desktop:build": "npm run version:sync && npm run desktop:runtime && tauri build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",

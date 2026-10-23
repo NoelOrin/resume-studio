@@ -120,7 +120,7 @@ export function Btn({
 }: {
   children: ReactNode
   onClick?: () => void
-  variant?: 'default' | 'primary' | 'ghost' | 'danger'
+  variant?: 'default' | 'primary' | 'ghost' | 'danger' | 'notice'
   disabled?: boolean
   title?: string
   small?: boolean

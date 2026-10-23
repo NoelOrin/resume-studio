@@ -103,6 +103,7 @@ fn open_window(app: &mut tauri::App, url: url::Url) -> tauri::Result<()> {
         .title("Resume Studio")
         .inner_size(1500.0, 960.0)
         .min_inner_size(1000.0, 700.0)
+        .center()
         .build()?;
     Ok(())
 }
