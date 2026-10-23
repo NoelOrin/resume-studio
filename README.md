@@ -91,6 +91,8 @@ type TemplateDefinition = TemplateMeta & {
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/api/health` | 健康检查 + 已注册模板列表 |
+| GET | `/api/update` | 检查更新：查 GitHub Releases 并返回统一 `UpdateCheck` JSON（`?platform=darwin\|win32\|linux`，10 分钟模块缓存，状态码恒为 200） |
+| GET | `/api/mcp/info` | MCP 能力清单：端点、传输与鉴权说明、7 个工具 / 3 个资源 / 2 个提示词（含调用词）、可粘贴的客户端配置片段 |
 | GET | `/api/docs` | 文档列表 |
 | GET / PUT / DELETE | `/api/docs/:id` | 读取 / 保存 / 删除（`{ title, data }`） |
 | POST | `/api/publish` | `{ id, title, html }` → `.data/published/<id>.html` |
@@ -102,6 +104,8 @@ type TemplateDefinition = TemplateMeta & {
 ## MCP（AI 客户端接入）
 
 同一份简历数据通过 **MCP（Model Context Protocol）** 暴露给 AI 客户端。端点是 **无状态 Streamable HTTP** 的 vinext Route Handler，纯 Node 运行时，不需要 Cloudflare 适配器。
+
+编辑器顶部的**设置页**里有一块「MCP 能力」：显示当前端点（绝对地址）、传输与鉴权状态、7 个工具 / 3 个资源 / 2 个提示词，每一项都附**可直接粘贴的调用词**，以及各客户端的配置片段。这份清单由 `src/mcp/catalog.ts` 提供，并由 `tests/mcp-catalog.test.ts` 与真实注册逐字比对，不会宣传服务端没有的能力。
 
 ```bash
 npm run dev                                  # 端点：http://localhost:5173/api/mcp
@@ -168,6 +172,7 @@ app/
 ├── page.tsx                 SSR：listDocs / readDoc → <EditorApp/>
 ├── icon.svg
 ├── api/health|docs|publish  Route Handlers
+├── api/update/route.ts      检查更新（GitHub Releases + 10 分钟缓存）
 ├── api/mcp/route.ts         MCP Streamable HTTP 端点
 └── p/[id]/route.ts          发布页
 src/
@@ -223,6 +228,12 @@ npm run desktop:dev       # 只调壳：窗口指向已在跑的 http://localhos
 - 组装脚本自带冒烟：把 `runtime/` 复制到**项目目录之外**再起服务、拉 `/api/health` 与首页。必须隔离，否则 Node 会沿目录向上找到项目自己的 `node_modules`，把缺失依赖藏起来。
 - 应用数据目录：`~/Library/Application Support/dev.linzhiyuan.resume-studio`（文档库与 `server.log`）。
 - 已知限制：macOS 的 WKWebView 不支持 `window.print()`，桌面版导出 PDF 请走「导出 HTML」再在浏览器打印。
+
+### 检查更新
+
+设置页的「检查更新」走 `GET /api/update`：服务端查 GitHub Releases（`RESUME_UPDATE_ENDPOINT` 可换端点，`RESUME_UPDATE_REPO` 换 `owner/repo`，`RESUME_UPDATE_CACHE_MS` 调缓存时长，默认 10 分钟），
+有新版本时给出对应平台的安装包链接（macOS 优先 `.dmg`、Windows 优先 `-setup.exe`）。
+**本期只提示、不自动安装**：弹窗展示版本号、更新说明与下载链接，由用户自己下载安装。
 
 ## CI（GitHub Actions）
 

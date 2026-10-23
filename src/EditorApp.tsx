@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { ChangeEvent } from "react";
 import { Accordion } from "./components/Accordion";
 import { LibraryModal } from "./components/LibraryModal";
+import { SettingsModal, formatVersionLabel } from "./components/SettingsModal";
 import { TemplatePicker } from "./components/TemplatePicker";
 import { ZoomControl } from "./components/ZoomControl";
 import { Btn, EditContext } from "./components/fields";
@@ -12,6 +13,7 @@ import { ZOOM_MIN, anchorScroll, normalizeWheelDelta, wheelZoom, zoomAnchor, typ
 import { defaultResume } from "./data/defaultResume";
 import { useResumeStore } from "./lib/useResumeStore";
 import { usePageOverflow } from "./lib/usePageOverflow";
+import { useUpdateCheck } from "./lib/useUpdateCheck";
 import { checkHealth, deleteDoc, fileBase, listDocs, publishHtml, putDoc, slugify } from "./lib/backend";
 import { buildStandaloneHtml, copyText, downloadHtml, exportJson } from "./lib/exporters";
 import { migrateDocument } from "./lib/migrate";
@@ -64,10 +66,13 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
   const [online, setOnline] = useState<boolean | null>(null);
   const [docs, setDocs] = useState<DocRecord[]>(initialDocs);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<Toast>(null);
   const [syncedAt, setSyncedAt] = useState<number | null>(null);
+
+  const { state: updateState, check: updateCheck, error: updateError, checkNow } = useUpdateCheck();
 
   const stageRef = useRef<HTMLElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -611,6 +616,15 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
             <Btn small variant="ghost" onClick={openLibrary}>
               文档库
             </Btn>
+            <Btn
+              small
+              variant="ghost"
+              onClick={() => setSettingsOpen(true)}
+              title={updateCheck?.hasUpdate ? `设置 · 有新版本 ${formatVersionLabel(updateCheck.latest)}` : "设置"}
+            >
+              设置
+              {updateCheck?.hasUpdate && <i className="ed-dot-badge" aria-hidden="true" />}
+            </Btn>
           </div>
         </header>
 
@@ -731,6 +745,18 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
         data={data}
         onClose={() => setTemplateOpen(false)}
         onPick={switchTemplate}
+      />
+
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        state={updateState}
+        check={updateCheck}
+        error={updateError}
+        onCheck={() => {
+          void checkNow();
+        }}
+        notify={notify}
       />
 
       <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={importJson} />
