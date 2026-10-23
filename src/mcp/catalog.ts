@@ -48,7 +48,7 @@ export const MCP_WORKFLOW: string[] = [
   "list_resumes 找到目标文档（返回 id / 标题 / 更新时间 / 模板）。",
   "get_resume 读取完整数据（ResumeData）。",
   "用 patch_resume 做最小必要修改；只有新建或整份替换时才用 save_resume。",
-  "render_resume_html 检查渲染结果与页数（工业标签模板一页内容有限，注意溢出）。",
+  "check_resume 确认页数与数据问题；需要成品文件时才用 render_resume_html（工业标签模板一页内容有限，注意溢出）。",
   "publish_resume 发布为 /p/<id> 分享页。",
 ];
 
@@ -69,7 +69,8 @@ export const MCP_TOOLS: McpToolDoc[] = [
   {
     name: "list_resumes",
     title: "列出简历",
-    description: "列出服务器上所有简历文档（id、标题、更新时间、模板）。只读，返回 JSON。编辑前先用它找到目标文档 id。",
+    description:
+      "列出服务器上的简历文档（id、标题、更新时间、模板），支持按模板过滤、按标题搜索与排序。只读，返回 JSON。编辑前先用它找到目标文档 id。",
     whenToUse: "不知道有哪些文档、或要先找到目标 id 时，第一步就用它。",
     example: "列出我保存的所有简历，按更新时间排序",
   },
@@ -93,6 +94,22 @@ export const MCP_TOOLS: McpToolDoc[] = [
     description: "用 RFC 7386 JSON Merge Patch 局部修改已有简历：对象递归合并，null 删除字段，其余值直接替换。适合只改一两个字段。返回修改后的完整数据。",
     whenToUse: "只改一两个字段时的默认选择，改动最小、最不容易误伤。",
     example: "把 lin-zhiyuan 的工作经历第一条要点改成：日均 {1.2M} 单",
+  },
+  {
+    name: "check_resume",
+    title: "预检简历",
+    description:
+      "把简历渲染成多页 HTML 但只返回元数据（模板、页数、字节、数据问题清单），不返回 html 正文。用 id 检查已存文档，或用 data 检查临时内容，二选一。适合发布或导出前确认页数与数据完整度。",
+    whenToUse: "只想确认页数、溢出或数据问题时，避免把整份 HTML 拉进对话。",
+    example: "检查 lin-zhiyuan 的页数和数据问题清单，不要把 HTML 发我",
+  },
+  {
+    name: "duplicate_resume",
+    title: "复制简历",
+    description:
+      "复制一份简历为新文档：保留全部内容并写入新 id，返回新文档信息。目标 id 已存在时报错，不会覆盖；缺省标题为「原标题 · 副本」。",
+    whenToUse: "要为不同岗位做内容变体、又不想动原文档时。",
+    example: "把 lin-zhiyuan 复制一份，标题改成 lin-zhiyuan · 后端方向",
   },
   {
     name: "delete_resume",
@@ -205,6 +222,7 @@ export const MCP_EXAMPLES: string[] = [
   "列出我保存的简历，并告诉我每份用的模板",
   "读一下我的简历，找出它和这份 JD 之间的 3 个差距",
   "把项目经历里第三条要点改得更量化，保留 {指标} 写法",
+  "先检查这份简历有没有缺段落、会不会超页，然后再发布",
   "把这份简历渲染成 HTML 发我，并说明有没有溢出到第二页",
   "发布这份简历，把分享链接发我",
 ];

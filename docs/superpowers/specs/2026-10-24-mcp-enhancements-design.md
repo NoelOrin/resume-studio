@@ -1,7 +1,7 @@
 # Resume Studio MCP 能力完善设计（方案 A · 精选增强）
 
 - 日期：2026-10-24
-- 状态：已确认，待实现
+- 状态：已实现（同日完成；版本号改由 `npm run version:sync` 机制统一管理）
 - 关联：`docs/superpowers/specs/2026-10-19-mcp-design.md`（首版 MCP 设计，本篇在其之上增量）
 
 ## 1. 目标

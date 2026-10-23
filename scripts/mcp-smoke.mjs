@@ -86,14 +86,19 @@ await notify("notifications/initialized", {});
 const tools = await rpc("tools/list", {});
 const names = tools.tools.map((tool) => tool.name).sort();
 check(
-  "tools/list exposes 7 tools",
-  names.length === 7,
+  "tools/list exposes 9 tools",
+  names.length === 9,
   names.join(", "),
 );
 
 const list = await rpc("tools/call", { name: "list_resumes", arguments: {} });
 const listPayload = JSON.parse(list.content[0].text);
 check("list_resumes returns a document list", Array.isArray(listPayload.docs), `${listPayload.count} doc(s)`);
+check(
+  "list_resumes honours structuredContent",
+  list.structuredContent && list.structuredContent.count === listPayload.count,
+  "schema-aware clients get machine-readable JSON",
+);
 
 const rendered = await rpc("tools/call", {
   name: "render_resume_html",
@@ -106,6 +111,36 @@ check(
   `${renderPayload.pages} page(s), ${renderPayload.bytes} bytes`,
 );
 
+const checked = await rpc("tools/call", {
+  name: "check_resume",
+  arguments: { data: { header: {}, experience: {} }, title: "Smoke Check" },
+});
+const checkPayload = JSON.parse(checked.content[0].text);
+check(
+  "check_resume reports metadata without the html payload",
+  !("html" in checkPayload) && checkPayload.pages >= 1 && Array.isArray(checkPayload.issues),
+  `${checkPayload.pages} page(s), ${checkPayload.issueCounts?.filled ?? 0} filled issue(s)`,
+);
+
+// duplicate_resume needs a stored source doc; write two throwaway docs and clean
+// them up afterwards (ids are smoke-prefixed so a collision is unlikely).
+await rpc("tools/call", {
+  name: "save_resume",
+  arguments: { id: "smoke-dup-src", title: "Smoke 复制源", data: { header: {}, experience: {} } },
+});
+const dup = await rpc("tools/call", {
+  name: "duplicate_resume",
+  arguments: { id: "smoke-dup-src", newId: "smoke-dup-copy" },
+});
+const dupPayload = JSON.parse(dup.content[0].text);
+check(
+  "duplicate_resume copies a document",
+  dupPayload.ok === true && dupPayload.id === "smoke-dup-copy" && dupPayload.title === "Smoke 复制源 · 副本",
+);
+for (const id of ["smoke-dup-src", "smoke-dup-copy"]) {
+  await rpc("tools/call", { name: "delete_resume", arguments: { id } });
+}
+
 const resources = await rpc("resources/list", {});
 check(
   "resources/list includes docs + templates",
@@ -116,7 +151,7 @@ check(
 
 const templates = await rpc("resources/read", { uri: "resume://templates" });
 const templatePayload = JSON.parse(templates.contents[0].text);
-check("resources/read resume://templates returns 3 templates", templatePayload.templates.length === 3);
+check("resources/read resume://templates returns 5 templates", templatePayload.templates.length === 5);
 
 const prompts = await rpc("prompts/list", {});
 check(

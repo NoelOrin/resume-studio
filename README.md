@@ -92,7 +92,7 @@ type TemplateDefinition = TemplateMeta & {
 | --- | --- | --- |
 | GET | `/api/health` | 健康检查 + 已注册模板列表 |
 | GET | `/api/update` | 检查更新：查 GitHub Releases 并返回统一 `UpdateCheck` JSON（`?platform=darwin\|win32\|linux`，10 分钟模块缓存，状态码恒为 200） |
-| GET | `/api/mcp/info` | MCP 能力清单：端点、传输与鉴权说明、7 个工具 / 3 个资源 / 2 个提示词（含调用词）、可粘贴的客户端配置片段 |
+| GET | `/api/mcp/info` | MCP 能力清单：端点、传输与鉴权说明、9 个工具 / 3 个资源 / 2 个提示词（含调用词）、可粘贴的客户端配置片段 |
 | GET | `/api/docs` | 文档列表 |
 | GET / PUT / DELETE | `/api/docs/:id` | 读取 / 保存 / 删除（`{ title, data }`） |
 | POST | `/api/publish` | `{ id, title, html }` → `.data/published/<id>.html` |
@@ -105,7 +105,7 @@ type TemplateDefinition = TemplateMeta & {
 
 同一份简历数据通过 **MCP（Model Context Protocol）** 暴露给 AI 客户端。端点是 **无状态 Streamable HTTP** 的 vinext Route Handler，纯 Node 运行时，不需要 Cloudflare 适配器。
 
-编辑器顶部的**设置页**里有一块「MCP 能力」：显示当前端点（绝对地址）、传输与鉴权状态、7 个工具 / 3 个资源 / 2 个提示词，每一项都附**可直接粘贴的调用词**，以及各客户端的配置片段。这份清单由 `src/mcp/catalog.ts` 提供，并由 `tests/mcp-catalog.test.ts` 与真实注册逐字比对，不会宣传服务端没有的能力。
+编辑器顶部的**设置页**里有一块「MCP 能力」：显示当前端点（绝对地址）、传输与鉴权状态、9 个工具 / 3 个资源 / 2 个提示词，每一项都附**可直接粘贴的调用词**，以及各客户端的配置片段；顶部还有**「测试连接」**一键自检（浏览器内直打端点跑 initialize → tools/list，展示服务身份、工具数与耗时；设置了 token 时 401 会标注为「端点可达、需在客户端配置鉴权」而非故障）。这份清单由 `src/mcp/catalog.ts` 提供，并由 `tests/mcp-catalog.test.ts` 与真实注册逐字比对，不会宣传服务端没有的能力。
 
 ```bash
 npm run dev                                  # 端点：http://localhost:5173/api/mcp
@@ -135,11 +135,13 @@ npm test                                     # 工具单测 + InMemoryTransport 
 
 | 工具 | 说明 |
 | --- | --- |
-| `list_resumes` | 列出文档（id / 标题 / 更新时间 / 模板） |
+| `list_resumes` | 列出文档（id / 标题 / 更新时间 / 模板），支持 `templateId` 过滤、`query` 标题搜索、`sort` 排序 |
 | `get_resume` | 读取完整 `ResumeData` + 模板元数据 |
 | `save_resume` | 新建（缺省 id 自动生成）或整份覆盖 |
 | `patch_resume` | RFC 7386 Merge Patch 局部修改（`null` 删除字段） |
+| `duplicate_resume` | 复制为新文档（目标 id 已存在时报错，不覆盖；缺省标题「原标题 · 副本」） |
 | `delete_resume` | 删除，幂等 |
+| `check_resume` | 预检：返回模板 / 页数 / 字节 / 数据问题清单（filled / coerced / dropped），**不返回 html 正文**，避免大负载进对话 |
 | `render_resume_html` | 服务端渲染多页自包含 HTML（可传 `id` 或临时 `data`） |
 | `publish_resume` | 渲染并写入 `.data/published`，返回 `/p/<id>` |
 
@@ -162,6 +164,8 @@ npm test                                     # 工具单测 + InMemoryTransport 
 - `POST /api/mcp` 承载 JSON-RPC，响应按 Streamable HTTP 返回 SSE 流；`GET` 返回 `405`（无状态端点不提供独立 SSE 流），`OPTIONS` 处理 CORS 预检。
 - 每个请求新建 server + transport，不保存会话；请求体上限 4 MiB、文档上限 2 MiB。
 - 浏览器请求带 `Origin` 时必须与 Host 一致或命中 `RESUME_MCP_ALLOWED_ORIGINS`，否则 `403`。
+- 全部工具声明 `outputSchema`，成功结果同时携带 `structuredContent` 与 text（旧客户端读 text 不受影响）；失败结果保持纯 text。
+- 每次工具调用与鉴权 / Origin 拒绝都向 stdout 写一行 JSON 日志（`{ts, tool|event, ms, ok}`），dev 终端直接可见，桌面版进 server.log。
 - `render_resume_html` 使用 `src/mcp/render.ts` 的元素树序列化器（RSC 环境会禁用 `react-dom/server`），产出与编辑器导出的 HTML 同构。
 
 ## 目录
@@ -178,11 +182,14 @@ app/
 src/
 ├── EditorApp.tsx            编辑器外壳（工具栏 / 表单 / 预览 / 打印层）
 ├── mcp/
-│   ├── handler.ts           鉴权 / Origin / 无状态 transport 生命周期
+│   ├── handler.ts           鉴权 / Origin / 无状态 transport 生命周期 / 请求级日志
 │   ├── server.ts            createMcpServer：注册三原语 + instructions
-│   ├── tools.ts             7 个工具
+│   ├── tools.ts             9 个工具（zod schema + outputSchema + handler）
+│   ├── audit.ts             归一化对比（check_resume 的问题清单）
 │   ├── resources.ts         3 个只读资源
 │   ├── prompts.ts           2 个提示词模板
+│   ├── selftest.ts          浏览器侧端点自检（settings 页「测试连接」）
+│   ├── catalog.ts           设置页能力清单（与真实注册逐字同步）
 │   ├── render.ts            SSR 元素树 → 自包含 HTML
 │   └── config.ts            环境变量与限制
 ├── templates/

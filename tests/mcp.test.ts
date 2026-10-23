@@ -32,7 +32,9 @@ test("MCP client can use tools, resources and prompts end to end", async () => {
     assert.deepEqual(
       tools.map((tool) => tool.name).sort(),
       [
+        "check_resume",
         "delete_resume",
+        "duplicate_resume",
         "get_resume",
         "list_resumes",
         "patch_resume",
@@ -74,6 +76,35 @@ test("MCP client can use tools, resources and prompts end to end", async () => {
     );
     assert.equal(patched.data.header.tag, "RESUME / E2E");
 
+    const checked = (await client.callTool({ name: "check_resume", arguments: { id } })) as {
+      structuredContent?: Record<string, unknown>;
+    };
+    const checkBody = jsonOf(checked);
+    assert.equal(checkBody.pages, 1);
+    assert.ok(!("html" in checkBody), "check_resume must not return the html payload");
+    assert.ok(checked.structuredContent, "check_resume should expose structuredContent");
+
+    const filtered = jsonOf(
+      await client.callTool({
+        name: "list_resumes",
+        arguments: { query: "端到端" },
+      }),
+    );
+    assert.ok(filtered.docs.some((doc: { id: string }) => doc.id === id));
+
+    const dup = jsonOf(
+      await client.callTool({
+        name: "duplicate_resume",
+        arguments: { id, newId: "e2e-copy", title: "端到端副本" },
+      }),
+    );
+    assert.equal(dup.id, "e2e-copy");
+    const dupGot = jsonOf(await client.callTool({ name: "get_resume", arguments: { id: "e2e-copy" } }));
+    assert.equal(dupGot.title, "端到端副本");
+
+    const published = jsonOf(await client.callTool({ name: "publish_resume", arguments: { id } }));
+    assert.equal(published.path, `/p/${id}`);
+
     const rendered = jsonOf(
       await client.callTool({ name: "render_resume_html", arguments: { id } }),
     );
@@ -95,6 +126,7 @@ test("MCP client can use tools, resources and prompts end to end", async () => {
 
     const deleted = jsonOf(await client.callTool({ name: "delete_resume", arguments: { id } }));
     assert.equal(deleted.deleted, true);
+    await client.callTool({ name: "delete_resume", arguments: { id: "e2e-copy" } });
 
     const missing = (await client.callTool({ name: "get_resume", arguments: { id } })) as {
       isError?: boolean;

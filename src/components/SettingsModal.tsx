@@ -3,6 +3,8 @@ import { Btn } from './fields'
 import { APP_REPO, APP_VERSION } from '../lib/version'
 import { fetchMcpInfo } from '../lib/backend'
 import type { McpInfo } from '../lib/backend'
+import { probeMcpEndpoint } from '../mcp/selftest'
+import type { McpProbeResult } from '../mcp/selftest'
 import type { UpdateCheck } from '../lib/update'
 import type { UpdateCheckState } from '../lib/useUpdateCheck'
 
@@ -34,6 +36,58 @@ export function formatVersionLabel(raw: string | null | undefined): string {
 
 export type McpState = 'idle' | 'loading' | 'ready' | 'error'
 type CopyFn = (text: string, okMsg: string) => void
+
+type SelfTestState = 'idle' | 'running' | 'done'
+
+/**
+ * One-click endpoint probe: the browser speaks bare JSON-RPC over fetch, so it
+ * can verify reachability, server identity and tool count without any client
+ * setup. A 401 means "endpoint reachable, token required" — expected when
+ * RESUME_MCP_TOKEN is set, since the browser cannot carry the token.
+ */
+function McpSelfTest({ endpoint }: { endpoint: string }) {
+  const [state, setState] = useState<SelfTestState>('idle')
+  const [result, setResult] = useState<McpProbeResult | null>(null)
+
+  const run = useCallback(async () => {
+    setState('running')
+    // probeMcpEndpoint catches network failures into its result; it does not throw.
+    const probe = await probeMcpEndpoint(endpoint)
+    setResult(probe)
+    setState('done')
+  }, [endpoint])
+
+  return (
+    <div>
+      <div className="ed-set-actions">
+        <Btn small variant="ghost" onClick={() => void run()} disabled={state === 'running'}>
+          {state === 'running' ? '测试中…' : '测试连接'}
+        </Btn>
+      </div>
+
+      {state === 'done' && result && (
+        result.ok ? (
+          <p className="ed-note">
+            自检通过：{result.serverName ?? '未知服务'} {formatVersionLabel(result.serverVersion)} ·{' '}
+            {result.toolCount ?? '?'} 个工具 · initialize {result.initMs}ms / tools/list{' '}
+            {result.listMs}ms
+          </p>
+        ) : result.authRequired ? (
+          <p className="ed-note">
+            <span className="is-warn">端点可达（HTTP 401）</span>
+            ：已启用 Bearer Token，浏览器自检无法携带 token。这是预期现象——请在 MCP 客户端配置
+            Authorization 后使用。
+          </p>
+        ) : (
+          <p className="ed-set-status is-err">
+            自检失败：{result.error ?? '未知错误'}。请确认服务正在运行，且浏览器 Origin
+            在允许列表内（RESUME_MCP_ALLOWED_ORIGINS）。
+          </p>
+        )
+      )}
+    </div>
+  )
+}
 
 /**
  * Everything this app exposes over MCP, with a ready-to-paste 调用词 for every
@@ -92,6 +146,8 @@ export function McpSection({
               {info.serverName} {formatVersionLabel(info.version)}
             </span>
           </p>
+
+          <McpSelfTest endpoint={info.endpoint} />
 
           <p className="ed-note">
             把上面的端点填进任意 MCP 客户端，AI 就能直接读写这里的简历。读取于 {formatTime(info.checkedAt)}。

@@ -5,9 +5,16 @@ import { MAX_DOC_BYTES } from "./config";
 
 export class McpToolError extends Error {}
 
-/** Serialize any JSON value as a single text content block. */
+/**
+ * Serialize any JSON value as a tool result: a text block for older clients plus
+ * the same value as structuredContent for schema-aware clients (declared through
+ * each tool's outputSchema; the SDK validates success results against it).
+ */
 export function toolJson(value: unknown): CallToolResult {
-  return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
+  return {
+    content: [{ type: "text", text: JSON.stringify(value, null, 2) }],
+    structuredContent: value as Record<string, unknown>,
+  };
 }
 
 export function toolText(text: string): CallToolResult {
@@ -18,13 +25,43 @@ export function toolError(message: string): CallToolResult {
   return { content: [{ type: "text", text: message }], isError: true };
 }
 
-/** Wrap a tool handler so unexpected exceptions become actionable tool errors instead of crashed requests. */
-export async function runTool(fn: () => Promise<CallToolResult>): Promise<CallToolResult> {
+/**
+ * One JSON line per MCP event on stdout. `vinext dev` shows it in the terminal;
+ * the desktop shell already collects the server's stdout into server.log.
+ */
+export function mcpLog(entry: Record<string, unknown>): void {
+  console.log(JSON.stringify(entry));
+}
+
+/**
+ * Wrap a tool handler so unexpected exceptions become actionable tool errors
+ * instead of crashed requests, and log one line per call (tool name, duration,
+ * outcome) for the server log.
+ */
+export async function runTool(
+  toolName: string,
+  fn: () => Promise<CallToolResult>,
+): Promise<CallToolResult> {
+  const startedAt = Date.now();
   try {
-    return await fn();
+    const result = await fn();
+    mcpLog({
+      ts: new Date().toISOString(),
+      tool: toolName,
+      ms: Date.now() - startedAt,
+      ok: !result.isError,
+    });
+    return result;
   } catch (error) {
-    if (error instanceof McpToolError) return toolError(error.message);
     const message = error instanceof Error ? error.message : String(error);
+    mcpLog({
+      ts: new Date().toISOString(),
+      tool: toolName,
+      ms: Date.now() - startedAt,
+      ok: false,
+      error: message,
+    });
+    if (error instanceof McpToolError) return toolError(error.message);
     return toolError(`工具执行失败：${message}`);
   }
 }

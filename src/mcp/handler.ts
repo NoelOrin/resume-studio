@@ -3,6 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { MAX_BODY_BYTES, mcpAllowedOrigins, mcpAuthToken } from "./config";
 import { createMcpServer } from "./server";
+import { mcpLog } from "./util";
 
 const CORS_METHODS = "POST, DELETE, OPTIONS";
 const CORS_HEADERS = "content-type, authorization, mcp-session-id, mcp-protocol-version";
@@ -117,9 +118,17 @@ async function finalize(response: Response, server: McpServer): Promise<Response
 /** Main entry used by app/api/mcp/route.ts. */
 export async function handleMcpRequest(request: Request): Promise<Response> {
   if (!isOriginAllowed(request)) {
+    mcpLog({
+      ts: new Date().toISOString(),
+      event: "origin_denied",
+      origin: request.headers.get("origin"),
+    });
     return jsonRpcError(403, "Forbidden origin. Set RESUME_MCP_ALLOWED_ORIGINS to allow it.");
   }
-  if (!isAuthorized(request)) return unauthorized();
+  if (!isAuthorized(request)) {
+    mcpLog({ ts: new Date().toISOString(), event: "auth_denied" });
+    return unauthorized();
+  }
   if (request.method === "GET") return methodNotAllowed();
 
   const server = createMcpServer();
