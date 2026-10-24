@@ -1,14 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { ResumeData } from "../../types";
+import { rich } from "../kit";
 
 const pad = (n: number) => String(n).padStart(2, "0");
-
-/** {braced} tokens become cobalt mono highlights. */
-function rich(text: string): ReactNode[] {
-  return text.split(/(\{[^{}]+\})/).map((part, i) =>
-    part.startsWith("{") && part.endsWith("}") ? <b key={i}>{part.slice(1, -1)}</b> : <span key={i}>{part}</span>,
-  );
-}
 
 function Regs() {
   return (

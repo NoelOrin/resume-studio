@@ -9,6 +9,8 @@ import { MOONLIGHT_CSS } from "./moonlight/styles";
 import { QuietPage } from "./quiet/QuietPage";
 import { QUIET_CSS } from "./quiet/styles";
 
+// npm run tpl:new inserts imports for new templates above this line — do not remove
+
 /**
  * Template registry. To add a template:
  *   1. create src/templates/<id>/ with a renderer + scoped CSS
@@ -41,6 +43,7 @@ export const templates: TemplateDefinition[] = [
     css: QUIET_CSS,
     render: (data) => <QuietPage data={data} />,
   },
+  /* npm run tpl:new inserts new registrations above this line — do not remove */
 ];
 
 export function getTemplate(id: string | undefined): TemplateDefinition {

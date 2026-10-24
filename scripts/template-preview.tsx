@@ -17,7 +17,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { defaultResume } from "../src/data/defaultResume";
 import { PAGE_CSS } from "../src/styles/pages";
 import { templates } from "../src/templates/registry";
-import { previewDataFor } from "../src/templates/types";
+import type { TemplateDefinition } from "../src/templates/types";
+import { pageCountOf, previewDataFor } from "../src/templates/types";
+import type { ResumeData } from "../src/types";
 
 const EDGE =
   process.env.EDGE_BIN ?? "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge";
@@ -60,22 +62,14 @@ function buildHtml(id: string, css: string, markup: string): string {
 </body></html>`;
 }
 
-function preview(id: string) {
-  const tpl = templates.find((t) => t.id === id);
-  if (!tpl) {
-    console.error(`✗ unknown template "${id}". registered: ${templates.map((t) => t.id).join(", ")}`);
-    process.exit(1);
-  }
-
-  // Mimic "just switched to this template": render in the template's own
-  // catalog accent, never an accent carried over from another template.
-  const data = previewDataFor(tpl, defaultResume);
-
+function previewPage(tpl: TemplateDefinition, data: ResumeData, page: number, id: string) {
   // NOTE: no JSX in this file — scripts/ is outside tsconfig.test.json's include,
   // so tsx would fall back to the classic runtime. createElement keeps it safe.
-  const markup = renderToStaticMarkup(createElement(Fragment, null, tpl.render(data, 0)));
-  const htmlPath = `${OUT_DIR}/${id}.html`;
-  const pngPath = `${OUT_DIR}/${id}.png`;
+  const markup = renderToStaticMarkup(createElement(Fragment, null, tpl.render(data, page)));
+  // Multi-page templates get one file per page; single-page keeps the plain id.
+  const stem = pageCountOf(tpl, data) > 1 ? `${id}-p${page + 1}` : id;
+  const htmlPath = `${OUT_DIR}/${stem}.html`;
+  const pngPath = `${OUT_DIR}/${stem}.png`;
   writeFileSync(htmlPath, buildHtml(id, tpl.css, markup));
 
   execFileSync(
@@ -111,10 +105,24 @@ function preview(id: string) {
   const title = /<title>([^<]*)<\/title>/.exec(dom)?.[1] ?? "(no measurement)";
   const fits = title.includes("FITS=yes");
 
-  console.log(`${fits ? "✓" : "✗"} ${id.padEnd(18)} ${title}`);
+  console.log(`${fits ? "✓" : "✗"} ${stem.padEnd(22)} ${title}`);
   console.log(`   html ${htmlPath}`);
   console.log(`   png  ${pngPath}`);
   return fits;
+}
+
+function preview(id: string) {
+  const tpl = templates.find((t) => t.id === id);
+  if (!tpl) {
+    console.error(`✗ unknown template "${id}". registered: ${templates.map((t) => t.id).join(", ")}`);
+    process.exit(1);
+  }
+
+  // Mimic "just switched to this template": render in the template's own
+  // catalog accent, never an accent carried over from another template.
+  const data = previewDataFor(tpl, defaultResume);
+  const results = Array.from({ length: pageCountOf(tpl, data) }, (_, page) => previewPage(tpl, data, page, id));
+  return results.every(Boolean);
 }
 
 const arg = process.argv[2];

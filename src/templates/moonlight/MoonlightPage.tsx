@@ -1,16 +1,10 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import type { ResumeData } from "../../types";
+import { rich } from "../kit";
 
 /* ---------------------------------------------------------------------------
    helpers
    ------------------------------------------------------------------------- */
-
-/** `{1.2M}` 之类的花括号指标 → 等宽强调。 */
-function rich(text: string): ReactNode[] {
-  return text.split(/(\{[^{}]+\})/).map((part, i) =>
-    part.startsWith("{") && part.endsWith("}") ? <b key={i}>{part.slice(1, -1)}</b> : <span key={i}>{part}</span>,
-  );
-}
 
 /** nameEn 按空格拆成两行（多于两词时前后对半分）。 */
 function splitLine(nameEn: string): [string, string] {

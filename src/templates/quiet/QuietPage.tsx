@@ -1,23 +1,11 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import type { ResumeData } from "../../types";
-
-/** `{1.2M}` / `{60%}` → mono emphasis, same convention as the minimal template. */
-function rich(text: string): ReactNode[] {
-  return text.split(/(\{[^{}]+\})/).map((part, i) =>
-    part.startsWith("{") && part.endsWith("}") ? <b key={i}>{part.slice(1, -1)}</b> : <span key={i}>{part}</span>,
-  );
-}
+import { rich, splitKicker } from "../kit";
 
 /** "AWS … — Associate / 2024" → ["AWS … — Associate", "2024"]. */
 function splitCert(item: string): [string, string] {
   const m = /^(.*\S)\s*\/\s*(\d{4})$/.exec(item.trim());
   return m ? [m[1], m[2]] : [item, ""];
-}
-
-/** "PROFILE / 个人简介" → ["PROFILE", "个人简介"]. */
-function splitKicker(kicker: string): [string, string] {
-  const [en, ...rest] = kicker.split("/");
-  return [en.trim(), rest.join("/").trim()];
 }
 
 /** Rail column of a section band: number + latin name, chinese name, mono meta lines. */

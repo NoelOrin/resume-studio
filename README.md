@@ -61,11 +61,14 @@ type TemplateDefinition = TemplateMeta & {
 | `moonlight` | 1 | 月光海报：巨月与城市剪影、彩纸碎屑、三行压缩巨字，默认 Kiwi 绿 `#97F11D` |
 | `quiet` | 1 | 色卡规格表：纸白印刷风、严格网格、编号即索引，主色只做线与编号 |
 
-新增模板只需三步：
+新增模板一条命令起步（生成骨架并自动注册）：
 
-1. 新建 `src/templates/<id>/`：一个渲染组件 + 一份以 `.t-<id>` 为根的 scoped CSS；
-2. 在 `catalog.ts` 加一条元数据（名称、描述、`pages`、默认主色、标签）；
-3. 在 `registry.tsx` 注册 `css` 与 `render`。
+```bash
+npm run tpl:new blueprint "蓝图"
+```
+
+契约、硬性约定、数据速查与常用配方见 **[docs/template-authoring.md](docs/template-authoring.md)**——
+由 `tests/template-contract.test.ts` 对每个注册模板强制执行。
 
 约定：页面根节点使用 `.tpl-page`，内容流包在 `.tpl-flow` 内（编辑器据此做 **逐页 A4 溢出检测**）；需要联动编辑面板的区块加 `data-panel="identity|profile|experience|projects|stack|education|flow|footer"`。
 

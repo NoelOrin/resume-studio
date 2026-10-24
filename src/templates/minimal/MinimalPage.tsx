@@ -1,11 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import type { ResumeData } from "../../types";
-
-function rich(text: string): ReactNode[] {
-  return text.split(/(\{[^{}]+\})/).map((part, i) =>
-    part.startsWith("{") && part.endsWith("}") ? <b key={i}>{part.slice(1, -1)}</b> : <span key={i}>{part}</span>,
-  );
-}
+import { rich } from "../kit";
 
 export function MinimalPage({ data }: { data: ResumeData }) {
   const { header, profile, stack, education, experience, projects, footer } = data;

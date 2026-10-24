@@ -22,6 +22,7 @@ export const TEMPLATE_CATALOG: TemplateMeta[] = [
     pages: 2,
     accent: "#2F52E0",
     tags: ["双页", "作品集", "标签风"],
+    cssScope: "industrial",
   },
   {
     id: "minimal",
@@ -50,6 +51,7 @@ export const TEMPLATE_CATALOG: TemplateMeta[] = [
     accent: "#97F11D",
     tags: ["单页", "极简", "印刷"],
   },
+  /* npm run tpl:new inserts new catalog entries above this line — do not remove */
 ];
 
 export function catalogEntry(id: string | undefined): TemplateMeta {

@@ -23,6 +23,7 @@ import { migrateDocument } from "./lib/migrate";
 import { PAGE_CSS } from "./styles/pages";
 import { ALL_TEMPLATE_CSS, getTemplate, templates } from "./templates/registry";
 import { pageCountOf } from "./templates/types";
+import type { PanelLink } from "./templates/types";
 import { IdentitySection } from "./sections/IdentitySection";
 import { ProfileSection } from "./sections/ProfileSection";
 import { ExperienceSection } from "./sections/ExperienceSection";
@@ -52,7 +53,7 @@ const PANELS = [
   { id: "education", no: "06", title: "教育与证书", en: "CREDENTIALS" },
   { id: "footer", no: "07", title: "页脚与流程", en: "FOOTER" },
   { id: "theme", no: "08", title: "模板与主题", en: "TEMPLATE" },
-] as const;
+] as const satisfies readonly { id: PanelLink | "theme"; no: string; title: string; en: string }[];
 
 type PanelId = (typeof PANELS)[number]["id"];
 
