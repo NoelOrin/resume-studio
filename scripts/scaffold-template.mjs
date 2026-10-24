@@ -157,27 +157,21 @@ export const ${upper}_CSS = String.raw\`
 \`;
 `;
 
-const CATALOG_MARKER = "  /* npm run tpl:new inserts new catalog entries above this line — do not remove */";
 const REGISTRY_IMPORT_MARKER = "// npm run tpl:new inserts imports for new templates above this line — do not remove";
 const REGISTRY_ENTRY_MARKER = "  /* npm run tpl:new inserts new registrations above this line — do not remove */";
 
 // Validate every marker before touching anything: a failed patch halfway
 // through must not leave a half-registered template behind. Also refuse a
 // re-scaffold of a live id — registrations accumulate above the markers.
-const catalogText = readFileSync(join(root, "src/templates/catalog.ts"), "utf8");
 const registryText = readFileSync(join(root, "src/templates/registry.tsx"), "utf8");
-for (const [file, text, marker] of [
-  ["src/templates/catalog.ts", catalogText, CATALOG_MARKER],
-  ["src/templates/registry.tsx", registryText, REGISTRY_IMPORT_MARKER],
-  ["src/templates/registry.tsx", registryText, REGISTRY_ENTRY_MARKER],
-]) {
-  if (!text.includes(marker)) {
-    console.error(`✗ marker missing in ${file} — re-add the "npm run tpl:new" marker line first`);
+for (const marker of [REGISTRY_IMPORT_MARKER, REGISTRY_ENTRY_MARKER]) {
+  if (!registryText.includes(marker)) {
+    console.error(`✗ marker missing in src/templates/registry.tsx — re-add the "npm run tpl:new" marker line first`);
     process.exit(1);
   }
 }
-if (catalogText.includes(`id: "${id}"`) || registryText.includes(`${pascal}Page`)) {
-  console.error(`✗ template "${id}" is already registered (catalog/registry) — remove those entries first`);
+if (registryText.includes(`id: "${id}"`) || registryText.includes(`${pascal}Page`)) {
+  console.error(`✗ template "${id}" is already registered in registry.tsx — remove that entry first`);
   process.exit(1);
 }
 
@@ -197,19 +191,6 @@ function patch(file, marker, insertion) {
 }
 
 patch(
-  "src/templates/catalog.ts",
-  CATALOG_MARKER,
-  `  {
-    id: "${id}",
-    name: "${id.toUpperCase()}",
-    nameZh: "${nameZh}",
-    description: "${nameZh}（脚手架起步模板，改成一句话版面描述）。",
-    pages: 1,
-    accent: "#2F52E0",
-    tags: ["单页", "起步"],
-  },`,
-);
-patch(
   "src/templates/registry.tsx",
   REGISTRY_IMPORT_MARKER,
   `import { ${pascal}Page } from "./${id}/${pascal}Page";
@@ -218,17 +199,22 @@ import { ${upper}_CSS } from "./${id}/styles";`,
 patch(
   "src/templates/registry.tsx",
   REGISTRY_ENTRY_MARKER,
-  `  {
-    ...TEMPLATE_CATALOG.find((t) => t.id === "${id}")!,
+  `  defineTemplate({
+    id: "${id}",
+    nameZh: "${nameZh}",
+    description: "${nameZh}（脚手架起步模板，改成一句话版面描述）。",
+    pages: 1,
+    accent: "#2F52E0",
+    tags: ["单页", "起步"],
     css: ${upper}_CSS,
     render: (data) => <${pascal}Page data={data} />,
-  },`,
+  }),`,
 );
 
 console.log(`✓ ${nameZh} scaffolded:
   src/templates/${id}/${pascal}Page.tsx
   src/templates/${id}/styles.ts
-  registered in src/templates/catalog.ts + registry.tsx
+  registered in src/templates/registry.tsx (catalog metadata is derived)
 
 next:
   npm run preview:tpl -- ${id}     # real-size A4 render + overflow check

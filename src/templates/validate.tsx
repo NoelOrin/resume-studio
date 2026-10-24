@@ -1,7 +1,7 @@
 import { Fragment, createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ResumeData } from "../types";
-import { PANEL_IDS, pageCountOf, previewDataFor, type TemplateDefinition } from "./types";
+import { PANEL_IDS, escapeRegExp, pageCountOf, previewDataFor, type TemplateDefinition } from "./types";
 
 /**
  * Template authoring contract, enforced.
@@ -21,10 +21,6 @@ export type TemplateValidation = {
   issues: TemplateIssue[];
   pagesChecked: number;
 };
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 
 export function validateTemplate(tpl: TemplateDefinition, base: ResumeData): TemplateValidation {
   const data = previewDataFor(tpl, base);

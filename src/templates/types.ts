@@ -14,6 +14,11 @@ export function isPanelLink(value: string): value is PanelLink {
   return (PANEL_IDS as readonly string[]).includes(value);
 }
 
+/** Escape a template id for building the `.t-<id>` scope-class regex. */
+export function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export type TemplateMeta = {
   id: string;
   name: string;

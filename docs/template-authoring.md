@@ -11,19 +11,26 @@ npm run check && npm test            # ③ 契约校验（提交前必跑）
 
 ## 1. 契约
 
-一个模板 = 一条目录元数据 + 一份作用域 CSS + 一个纯函数渲染器，由 `TemplateDefinition`（`src/templates/types.ts`）绑定：
+一个模板 = **一次 `defineTemplate()` 调用**（`src/templates/factory.tsx`）：元数据、作用域 CSS、渲染器在同一处声明。
+`src/templates/registry.tsx` 是唯一事实源（一个 `defineTemplate` 数组）；`src/templates/catalog.ts`
+的服务端安全元数据由它**派生**（`toMeta`），不需要单独维护。
 
-| 字段 | 必填 | 说明 |
-| --- | --- | --- |
-| `id` | ✓ | kebab-case，唯一；决定 `.t-<id>` 作用域类与文件目录 |
-| `name` / `nameZh` | ✓ | 模板库展示名（英文 / 中文） |
-| `description` | ✓ | 一句话版面描述（模板库卡片） |
-| `pages` | ✓ | 固定页数，或 `(data) => number` 按内容分页 |
-| `accent` | ✓ | 默认主色；用户切到此模板时若未自定义主色则自动套用 |
-| `tags` | ✓ | 模板库标签（单页 / 海报 / 印刷…） |
-| `cssScope` | — | 与其他条目**共享实现**时声明（见 §5.1），否则不写 |
-| `css` | ✓ | 字符串模板；全部选择器必须在 `.t-<id>` 作用域内 |
-| `render(data, page)` | ✓ | 渲染第 `page` 页（0 起），返回该页根节点 |
+```ts
+defineTemplate({
+  id: "quiet",                 // kebab-case，决定 .t-<id> 作用域类与文件目录
+  nameZh: "色卡规格表",          // 模板库中文名（name 缺省取 id 大写）
+  description: "……",            // 模板库卡片一句话
+  pages: 1,                    // 固定页数，或 (data) => number 按内容分页
+  accent: "#97F11D",           // 默认主色：切换到此模板且用户未自定义主色时套用
+  tags: ["单页", "印刷"],        // 缺省 []
+  cssScope: "quiet",           // 仅当与其他条目共享实现时声明（见 §5.1）
+  css: QUIET_CSS,              // 全部选择器必须作用域在 .t-<id> 下
+  render: (data, page) => <QuietPage data={data} />,  // 渲染第 page 页（0 起）
+})
+```
+
+工厂在**模块加载时**就拒绝低级错误：id 非 kebab-case、CSS 未作用域到 `.t-<id>` 会直接抛错，
+不会等到契约测试或编辑器白屏。
 
 渲染器的调用时机：编辑器对**当前页**实时调用、导出对**全部页**逐页调用、
 模板库缩略图对**第 0 页**以模板默认主色调用（`previewDataFor`）。同一个 render 必须在任何 data 下不抛错——
@@ -77,8 +84,8 @@ npm run check && npm test            # ③ 契约校验（提交前必跑）
 ### 5.1 双页 / 共享实现（`cssScope`）
 
 同一设计语言的多个条目共享一套组件与 CSS 时（如 `industrial` 与 `industrial-duplex`），
-共享方的目录条目声明 `cssScope: "industrial"`：根节点写 `t-industrial`，CSS 只有一份
-`.t-industrial`。契约测试按 `cssScope ?? id` 校验，不写会在两条目之一上报错。
+共享方在 `defineTemplate` 里声明 `cssScope: "industrial"`：根节点写 `t-industrial`，CSS 只有一份
+`.t-industrial`。契约测试与工厂都按 `cssScope ?? id` 校验，不写会在两条目之一上报错。
 页内差异用修饰类（如 `t-industrial--p2`）。
 
 ### 5.2 按内容分页

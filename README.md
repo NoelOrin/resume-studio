@@ -42,13 +42,19 @@ npm run preview:tpl -- --all          # 全部模板
 
 ## 模板系统（多页 / 可扩展）
 
-模板在 `src/templates/catalog.ts` 注册元数据，在 `src/templates/registry.tsx` 绑定渲染器。每个模板是一个纯函数：
+每个模板 = 一次 `defineTemplate()` 工厂调用（`src/templates/factory.tsx`），元数据、作用域 CSS 与渲染器同处声明；
+`src/templates/registry.tsx` 是唯一事实源，服务端安全的元数据目录 `catalog.ts` 由它派生：
 
 ```ts
-type TemplateDefinition = TemplateMeta & {
-  css: string;                                  // 作用域内的模板 CSS
-  render: (data: ResumeData, page: number) => ReactNode; // 渲染第 page 页（0 起）
-};
+defineTemplate({
+  id: "quiet",              // kebab-case → .t-<id> 作用域类 + 文件目录
+  nameZh: "色卡规格表",
+  description: "……",
+  pages: 1,                 // 或 (data) => number 按内容分页
+  accent: "#97F11D",        // 默认主色
+  css: QUIET_CSS,           // 全部选择器作用域在 .t-<id>
+  render: (data) => <QuietPage data={data} />,
+})
 ```
 
 当前内置：
@@ -196,9 +202,11 @@ src/
 │   ├── render.ts            SSR 元素树 → 自包含 HTML
 │   └── config.ts            环境变量与限制
 ├── templates/
-│   ├── catalog.ts           模板元数据（服务端安全）
-│   ├── registry.tsx         模板注册 + CSS 聚合
-│   ├── types.ts             TemplateDefinition 契约
+│   ├── factory.tsx          defineTemplate 工厂：元数据 + CSS + 渲染器一次声明
+│   ├── catalog.ts           派生的模板元数据（服务端安全）
+│   ├── registry.tsx         模板注册表（唯一事实源）+ CSS 聚合
+│   ├── types.ts             模板契约（TemplateDefinition / PANEL_IDS）
+│   ├── validate.tsx         契约校验器（仅测试/脚本可用）
 │   ├── industrial/          pages.tsx + styles.ts（原版 + 双页）
 │   ├── minimal/             MinimalPage.tsx + styles.ts
 │   ├── moonlight/           MoonlightPage.tsx + styles.ts（暗底海报）
