@@ -17,6 +17,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { defaultResume } from "../src/data/defaultResume";
 import { PAGE_CSS } from "../src/styles/pages";
 import { templates } from "../src/templates/registry";
+import { previewDataFor } from "../src/templates/types";
 
 const EDGE =
   process.env.EDGE_BIN ?? "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge";
@@ -66,15 +67,9 @@ function preview(id: string) {
     process.exit(1);
   }
 
-  // Mimic "just switched to this template": the editor applies the template's
-  // catalog accent to docs that still carry another template's colour. Without
-  // this the preview would render in whatever accent defaultResume happens to
-  // have (industrial cobalt) instead of the template's own Kiwi green.
-  const data = {
-    ...defaultResume,
-    templateId: id,
-    theme: { accent: tpl.accent ?? defaultResume.theme.accent },
-  };
+  // Mimic "just switched to this template": render in the template's own
+  // catalog accent, never an accent carried over from another template.
+  const data = previewDataFor(tpl, defaultResume);
 
   // NOTE: no JSX in this file — scripts/ is outside tsconfig.test.json's include,
   // so tsx would fall back to the classic runtime. createElement keeps it safe.

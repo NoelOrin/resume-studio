@@ -23,3 +23,12 @@ export type TemplateDefinition = TemplateMeta & {
 export function pageCountOf(template: TemplateDefinition, data: ResumeData): number {
   return typeof template.pages === "function" ? Math.max(1, template.pages(data)) : Math.max(1, template.pages);
 }
+
+/**
+ * Preview a template as it looks right after switching to it: its own catalog
+ * accent, never the accent of the document being edited (that colour belongs
+ * to whichever template is currently active).
+ */
+export function previewDataFor(template: TemplateMeta, data: ResumeData): ResumeData {
+  return { ...data, templateId: template.id, theme: { ...data.theme, accent: template.accent } };
+}

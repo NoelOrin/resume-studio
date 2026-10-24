@@ -1,5 +1,5 @@
 import { getTemplate, templates } from "../templates/registry";
-import { pageCountOf } from "../templates/types";
+import { pageCountOf, previewDataFor } from "../templates/types";
 import type { ResumeData } from "../types";
 import { Btn } from "./fields";
 import { TemplateBoundary } from "./TemplateBoundary";
@@ -50,14 +50,14 @@ export function TemplatePicker({
                   if (e.key === "Enter" || e.key === " ") onPick(t.id);
                 }}
               >
-                <div className="ed-tpl-thumb" style={{ width: THUMB_W, height: THUMB_H }}>
-                  {/* One unrenderable template must not blank the whole picker. */}
-                  <TemplateBoundary label={`thumb:${t.id}`} compact>
-                    <div className="ed-tpl-mini" style={{ transform: `scale(${THUMB_SCALE})` }}>
-                      {t.render(data, 0)}
+                    <div className="ed-tpl-thumb" style={{ width: THUMB_W, height: THUMB_H }}>
+                      {/* One unrenderable template must not blank the whole picker. */}
+                      <TemplateBoundary label={`thumb:${t.id}`} compact>
+                        <div className="ed-tpl-mini" style={{ transform: `scale(${THUMB_SCALE})` }}>
+                          {t.render(previewDataFor(t, data), 0)}
+                        </div>
+                      </TemplateBoundary>
                     </div>
-                  </TemplateBoundary>
-                </div>
                 <div className="ed-tpl-info">
                   <div className="ed-tpl-name">
                     {t.name}
