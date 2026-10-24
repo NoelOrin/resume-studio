@@ -51,7 +51,8 @@ defineTemplate({
 
 ## 3. 结构约定（推荐，产品一致性的来源）
 
-- **内部类名前缀**：`.t-<id>` 之内用统一短前缀（如 industrial → `.in-*`，quiet → `.qt-*`），避免与其他模板撞名。
+- **内部类名前缀**：`.t-<id>` 之内用统一短前缀（quiet → `.qt-*`，minimal → `.mn-*`，moonlight → `.ml-*`），
+  避免与其他模板撞名；industrial 是历史实现，裸类名但完全依赖 `.t-industrial` 作用域——新模板别学它。
 - **主色只经 `--blue`**：根节点写 `style={{ "--blue": data.theme.accent }}`，模板内部不硬编码主题色——
   用户在「主题」面板改色时全模板联动。主色的用法建议克制（规则线、编号、点），大面积色块留给版面底色。
 - **字体栈**：中文 `"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif`；
