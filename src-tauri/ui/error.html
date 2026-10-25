@@ -64,5 +64,12 @@
         <li>重新打开应用；仍失败可在终端里直接运行应用内的可执行文件查看报错。</li>
       </ol>
     </div>
+  <script>
+    document.addEventListener("contextmenu", function (e) {
+      var t = e.target;
+      var editable = t && t.closest && t.closest("input,textarea,select,[contenteditable],[contenteditable] *");
+      if (!editable) e.preventDefault();
+    }, true);
+  </script>
   </body>
 </html>
