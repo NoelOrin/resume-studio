@@ -55,7 +55,7 @@ export const MCP_WORKFLOW: string[] = [
 /** Sent to every MCP client as the server `instructions`. */
 export const MCP_INSTRUCTIONS = `Resume Studio 是一个多模板简历编辑器。你在这里可以读写真实简历文档并产出可直接分发的 HTML。
 
-可用模板（templateId）：industrial（工业标签单页）、industrial-duplex（工业标签双页）、industrial-day（工业标签日光单页，亮色）、industrial-day-duplex（工业标签日光双页，亮色）、minimal（极简单页）、moonlight（月光海报单页，暗底 + Kiwi 绿）、moonlight-day（月光海报日光版，米白纸面 + 苔绿）、quiet（色卡规格表单页，纸白印刷风）。
+可用模板（templateId）：industrial（工业标签单页）、industrial-duplex（工业标签双页）、industrial-day（工业标签日光单页，亮色）、industrial-day-duplex（工业标签日光双页，亮色）、minimal（极简单页）、minimal-duplex（极简双页）、moonlight（月光海报单页，暗底 + Kiwi 绿）、moonlight-duplex（月光海报双页）、moonlight-day（月光海报日光版，米白纸面 + 苔绿）、moonlight-day-duplex（月光海报日光双页）、quiet（色卡规格表单页，纸白印刷风）、quiet-duplex（色卡规格表双页）、proof（打样稿单页，拼贴小报安静版）、proof-duplex（打样稿双页）。内容多、需要作品集页时优先选 -duplex 变体。
 
 推荐工作流：
 ${MCP_WORKFLOW.map((step, index) => `${index + 1}. ${step}`).join("\n")}

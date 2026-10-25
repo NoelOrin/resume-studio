@@ -38,70 +38,80 @@ import { rich } from "../kit";
 
 /**
  * ${nameZh} — describe the layout idea in one line here.
- * Authoring guide: docs/template-authoring.md
+ * Conventions: docs/template-authoring.md — every family ships a duplex variant.
  */
-export function ${pascal}Page({ data }: { data: ResumeData }) {
+function ${pascal}PageBody({ data, page = 0, duplex = false }: { data: ResumeData; page?: number; duplex?: boolean }) {
+  const px = "${id.slice(0, 3)}";
   return (
     <div className="tpl-page t-${id}" style={{ "--blue": data.theme.accent } as CSSProperties}>
       <div className="tpl-flow">
-        <header className="${id.slice(0, 3)}-top" data-panel="identity">
+        <header className={px + "-top"} data-panel="identity">
           <h1>{data.header.nameZh}</h1>
           <p>
             {data.header.titleZh} · {data.header.titleEn}
+            {duplex ? \` · SHEET 0\${page + 1} / 02\` : ""}
           </p>
         </header>
 
-        <section className="${id.slice(0, 3)}-band" data-panel="profile">
-          <h2>{data.profile.kicker}</h2>
-          <p>{rich(data.profile.text)}</p>
-        </section>
+        {(page === 0 || !duplex) && (
+          <section className={px + "-band"} data-panel="profile">
+            <h2>{data.profile.kicker}</h2>
+            <p>{rich(data.profile.text)}</p>
+          </section>
+        )}
 
-        <section className="${id.slice(0, 3)}-band" data-panel="experience">
-          <h2>{data.experience.title}</h2>
-          {data.experience.jobs.map((job, i) => (
-            <article key={i}>
-              <h3>
-                {job.roleZh} · {job.company}
-              </h3>
-              <span>{job.date}</span>
-              <ul>
-                {job.bullets.map((b, j) => (
-                  <li key={j}>{rich(b)}</li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </section>
-
-        <section className="${id.slice(0, 3)}-band" data-panel="projects">
-          <h2>{data.projects.title}</h2>
-          {data.projects.items.map((p, i) => (
-            <article key={i}>
-              <h3>{p.name}</h3>
-              <p>{p.desc}</p>
-            </article>
-          ))}
-        </section>
-
-        <div className="${id.slice(0, 3)}-pair">
-          <section data-panel="stack">
-            <h2>{data.stack.kicker}</h2>
-            {data.stack.groups.map((g, i) => (
-              <p key={i}>
-                <b>{g.k}</b> {g.v}
-              </p>
+        {(page === 0 || !duplex) && (
+          <section className={px + "-band"} data-panel="experience">
+            <h2>{data.experience.title}</h2>
+            {data.experience.jobs.map((job, i) => (
+              <article key={i}>
+                <h3>
+                  {job.roleZh} · {job.company}
+                </h3>
+                <span>{job.date}</span>
+                <ul>
+                  {job.bullets.map((b, j) => (
+                    <li key={j}>{rich(b)}</li>
+                  ))}
+                </ul>
+              </article>
             ))}
           </section>
+        )}
 
-          <section data-panel="education">
-            <h2>{data.education.kicker}</h2>
-            <p>
-              {data.education.school} · {data.education.degree}
-            </p>
+        {(page === 1 || !duplex) && (
+          <section className={px + "-band"} data-panel="projects">
+            <h2>{data.projects.title}</h2>
+            {data.projects.items.map((p, i) => (
+              <article key={i}>
+                <h3>{p.name}</h3>
+                <p>{p.desc}</p>
+              </article>
+            ))}
           </section>
-        </div>
+        )}
 
-        <footer className="${id.slice(0, 3)}-foot" data-panel="footer">
+        {(page === 1 || !duplex) && (
+          <div className={px + "-pair"}>
+            <section data-panel="stack">
+              <h2>{data.stack.kicker}</h2>
+              {data.stack.groups.map((g, i) => (
+                <p key={i}>
+                  <b>{g.k}</b> {g.v}
+                </p>
+              ))}
+            </section>
+
+            <section data-panel="education">
+              <h2>{data.education.kicker}</h2>
+              <p>
+                {data.education.school} · {data.education.degree}
+              </p>
+            </section>
+          </div>
+        )}
+
+        <footer className={px + "-foot"} data-panel="footer">
           <span>{data.footer.copyright}</span>
           {data.flags.showFlow ? (
             <p data-panel="flow">
@@ -112,6 +122,12 @@ export function ${pascal}Page({ data }: { data: ResumeData }) {
       </div>
     </div>
   );
+}
+
+export function ${pascal}Page({ data, page = 0, duplex = false }: { data: ResumeData; page?: number; duplex?: boolean }) {
+  /* 第 2 页 = 项目附录（project appendix）；两个页面共享页脚。 */
+  if (duplex && page === 1) return <${pascal}PageBody data={data} page={1} duplex />;
+  return <${pascal}PageBody data={data} page={0} duplex={duplex} />;
 }
 `;
 
@@ -208,6 +224,17 @@ patch(
     tags: ["单页", "起步"],
     css: ${upper}_CSS,
     render: (data) => <${pascal}Page data={data} />,
+  }),
+  defineTemplate({
+    id: "${id}-duplex",
+    nameZh: "${nameZh} · 双页",
+    description: "${nameZh}的跨页版本：第 1 页履历，第 2 页项目档案（改成一句话描述）。",
+    pages: 2,
+    accent: "#2F52E0",
+    tags: ["双页", "起步"],
+    cssScope: "${id}",
+    css: ${upper}_CSS,
+    render: (data, page) => <${pascal}Page data={data} page={page} duplex />,
   }),`,
 );
 

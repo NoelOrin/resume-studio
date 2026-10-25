@@ -28,10 +28,10 @@ function titleFontMm(text: string): number {
  * 装饰收进细规则线与勾线字，主色只做文字与编号点缀。
  * Authoring guide: docs/template-authoring.md
  */
-export function ProofPage({ data }: { data: ResumeData }) {
+function ProofPageBody({ data, page = 0, duplex = false }: { data: ResumeData; page?: number; duplex?: boolean }) {
   const { header, profile, stack, education, experience, projects, flow, footer, strip, flags } = data;
 
-  const title = titleText(header);
+  const title = duplex && page === 1 ? projects.title || "SELECTED WORK" : titleText(header);
   const titleMm = titleFontMm(title);
   const [profileEn, profileZh] = splitKicker(profile.kicker);
   const [stackEn, stackZh] = splitKicker(stack.kicker);
@@ -60,7 +60,7 @@ export function ProofPage({ data }: { data: ResumeData }) {
 
           <div className="pf-caption">
             <span>
-              {strip.date} — {strip.sheet}
+              {strip.date} — {duplex ? `SHEET 0${page + 1} / 02` : strip.sheet}
             </span>
             <span className="pf-say">
               <em>“{slogan}”</em> — {header.tag}
@@ -99,6 +99,7 @@ export function ProofPage({ data }: { data: ResumeData }) {
         </header>
 
         {/* ---- 个人简介 ---- */}
+        {(page === 0 || !duplex) && (
         <section className="pf-sec" data-panel="profile">
           <div className="pf-shead">
             <span className="no">{profile.no}</span>
@@ -119,8 +120,10 @@ export function ProofPage({ data }: { data: ResumeData }) {
             </p>
           ) : null}
         </section>
+        )}
 
         {/* ---- 工作经历：剪报条目，细线分隔 ---- */}
+        {(page === 0 || !duplex) && (
         <section className="pf-sec" data-panel="experience">
           <div className="pf-shead2">
             <span className="no">{experience.no}</span>
@@ -149,8 +152,10 @@ export function ProofPage({ data }: { data: ResumeData }) {
             </article>
           ))}
         </section>
+        )}
 
         {/* ---- 项目：hairline 网格 ---- */}
+        {(page === 1 || !duplex) && (
         <section className="pf-sec" data-panel="projects">
           <div className="pf-shead2">
             <span className="no">{projects.no}</span>
@@ -182,8 +187,10 @@ export function ProofPage({ data }: { data: ResumeData }) {
             ))}
           </div>
         </section>
+        )}
 
         {/* ---- 技术栈 + 教育 ---- */}
+        {(page === 1 || !duplex) && (
         <div className="pf-duo">
           <section className="pf-sec" data-panel="stack">
             <div className="pf-shead">
@@ -245,6 +252,7 @@ export function ProofPage({ data }: { data: ResumeData }) {
             </ul>
           </section>
         </div>
+        )}
 
         {/* ---- 页脚：细线收底 ---- */}
         <footer className="pf-foot" data-panel="footer">
@@ -285,4 +293,10 @@ export function ProofPage({ data }: { data: ResumeData }) {
       </div>
     </div>
   );
+}
+
+export function ProofPage({ data, page = 0, duplex = false }: { data: ResumeData; page?: number; duplex?: boolean }) {
+  /* 双页第 2 页：项目附录（标题让位给 SELECTED WORK）+ 技术栈/证书。 */
+  if (duplex && page === 1) return <ProofPageBody data={data} page={1} duplex />;
+  return <ProofPageBody data={data} page={0} duplex={duplex} />;
 }

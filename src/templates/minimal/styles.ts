@@ -71,4 +71,14 @@ export const MINIMAL_CSS = String.raw`
 /* footer */
 .t-minimal .mn-foot{display:flex;justify-content:space-between;align-items:center;gap:6mm;font:400 5.2pt var(--mm);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--ink);padding-top:3mm;margin-top:6mm;flex:0 0 auto}
 .t-minimal .mn-foot b{color:var(--ink);font-weight:500}
+
+/* duplex page 2 */
+.t-minimal .mn-name--p2{font-size:24pt}
+.t-minimal--p2 .mn-head{padding-bottom:5mm}
+.t-minimal .mn-body--solo{display:block}
+.t-minimal .mn-body--solo .mn-main{gap:7mm}
+.t-minimal .mn-p2grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:11mm;margin-top:7mm}
+.t-minimal .mn-p2grid .mn-sec{min-width:0}
+.t-minimal .mn-contact-list{margin-top:3mm}
+.t-minimal .mn-contact-list .mn-group span{font:400 8.4pt var(--mm);margin-top:1mm}
 `

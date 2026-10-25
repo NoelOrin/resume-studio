@@ -231,8 +231,126 @@ function CitySvg() {
    page
    ------------------------------------------------------------------------- */
 
-export function MoonlightPage({ data }: { data: ResumeData }) {
-  const { header, profile, stack, education, experience, projects, flow, footer, strip, flags } = data;
+/** 项目网格：单页与双页第 2 页共享。 */
+function MoonlightProjects({ data }: { data: ResumeData }) {
+  const { projects } = data;
+  return (
+    <section className="ml-sec" data-panel="projects">
+              <SectionHead no={projects.no} en={projects.title} zh={projects.zh} meta={projects.meta} />
+              <div className="ml-projs">
+                {projects.items.map((p, i) => {
+                  const head = p.stats.find((s) => s.l.trim() === "");
+                  const nums = head ? p.stats.filter((s) => s !== head) : p.stats;
+                  return (
+                    <article className="ml-proj" key={i}>
+                      <div className="ml-ptop">
+                        <span className="ml-pcode">{p.code}</span>
+                        {head ? <span className="ml-pcode">{head.v}</span> : null}
+                      </div>
+                      <h3 className="ml-pname">{p.name}</h3>
+                      <p className="ml-pkind">{p.kind}</p>
+                      <p className="ml-pdesc">{rich(p.desc)}</p>
+                      {nums.length > 0 && (
+                        <div className="ml-pnums">
+                          {nums.map((s, j) => (
+                            <span key={j}>
+                              <b>{s.v}</b>
+                              {s.l}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+  );
+}
+
+/** 证书面板：单页与双页第 2 页共享。 */
+function MoonlightEducation({ data }: { data: ResumeData }) {
+  const { education } = data;
+  const [credEn, credZh] = kickerParts(education.kicker);
+  return (
+    <section className="ml-panel" data-panel="education">
+              <PanelHead no={education.no} en={credEn} zh={credZh} />
+              <div className="ml-citem">
+                <div className="ml-crow">
+                  <b>{education.school}</b>
+                  <span className="ml-cyr">{education.date}</span>
+                </div>
+                <div className="ml-cs">{education.schoolMeta}</div>
+                <div className="ml-cd">{education.degree}</div>
+              </div>
+              <ul className="ml-clist">
+                {education.items.map((item, i) => (
+                  <li key={i}>{rich(item)}</li>
+                ))}
+              </ul>
+            </section>
+  );
+}
+
+/** 共享页脚：流程条 + 联系卡 + 铭牌 + 出血巨字。 */
+function MoonlightFoot({ data }: { data: ResumeData }) {
+  const { header, flow, footer, flags } = data;
+
+  /* Contacts 0–2 live in the footer contact card; the last one stays as a text line. */
+  const footLine2 = [header.contacts[3]?.value, header.contacts[4]?.value].filter(Boolean).join(" / ");
+
+  return (
+    <footer className="ml-foot" data-panel="footer">
+      {flags.showFlow && (
+        <div className="ml-process" data-panel="flow">
+          <span>
+            <b>{flow.label}</b>
+          </span>
+          {flow.steps.map((s, i) => (
+            <span key={i}>{s}</span>
+          ))}
+          <span className="ml-ptag">{flow.tag}</span>
+        </div>
+      )}
+
+      <div className="ml-foot-main">
+        <div className="ml-contactcard" aria-label="联系方式">
+          {header.contacts.slice(0, 3).map((c, i) => (
+            <div className="ml-cc" key={i}>
+              <span className="no">{pad2(i + 1)}.</span>
+              <span className="nm">{c.label}</span>
+              <span className="v">{c.value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="ml-plate">
+          <b>{footer.plateTop}</b>
+          <span>{footer.plateSub}</span>
+        </div>
+
+        <div className="ml-foot-info">
+          <div className="ml-fline">
+            <i className="sq" aria-hidden="true" />
+            <em>
+              {header.nameZh} · {header.nameEn}
+            </em>
+          </div>
+          {footLine2 ? <div className="ml-fline">{footLine2}</div> : null}
+          {footer.product ? <div className="ml-fline">{footer.product}</div> : null}
+          <div className="ml-fline">{footer.copyright}</div>
+        </div>
+      </div>
+
+      <div className="ml-bleed" aria-hidden="true">
+        {footer.word}
+      </div>
+    </footer>
+  );
+}
+
+function MoonlightPageBody({ data, day, page = 0, duplex = false }: { data: ResumeData; day?: boolean; page?: number; duplex?: boolean }) {
+  const { header, profile, stack, education, experience, projects, footer, strip, flags } = data;
 
   const [nameLine1, nameLine2] = splitLine(header.nameEn);
   /* 巨字按最长的行收一点字号，长名字不会顶出纸面（默认数据下等于 17mm / 11.4mm） */
@@ -261,14 +379,11 @@ export function MoonlightPage({ data }: { data: ResumeData }) {
     { k: "MODE", v: statusMode },
     { k: "SPAN", v: strip.date },
     { k: "LEVEL", v: header.titleEn },
-    { k: "SHEET", v: strip.sheet },
+    { k: "SHEET", v: duplex ? `SHEET ${pad2(page + 1)} / 02` : strip.sheet },
   ].filter((r) => Boolean(r.v));
 
-  /* Contacts 0–2 live in the footer contact card; the last one stays as a text line. */
-  const footLine2 = [header.contacts[3]?.value, header.contacts[4]?.value].filter(Boolean).join(" / ");
-
   return (
-    <div className="tpl-page t-moonlight" style={{ "--blue": data.theme.accent } as CSSProperties}>
+    <div className={`tpl-page t-moonlight${day ? " t-moonlight-day" : ""}`} style={{ "--blue": data.theme.accent } as CSSProperties}>
       <div className="tpl-flow">
         <header className="ml-hero" data-panel="identity">
           {/* ---- 夜空装饰：巨月 / 城市剪影 / 光带 / 星点 ---- */}
@@ -424,36 +539,7 @@ export function MoonlightPage({ data }: { data: ResumeData }) {
               })}
             </section>
 
-            <section className="ml-sec" data-panel="projects">
-              <SectionHead no={projects.no} en={projects.title} zh={projects.zh} meta={projects.meta} />
-              <div className="ml-projs">
-                {projects.items.map((p, i) => {
-                  const head = p.stats.find((s) => s.l.trim() === "");
-                  const nums = head ? p.stats.filter((s) => s !== head) : p.stats;
-                  return (
-                    <article className="ml-proj" key={i}>
-                      <div className="ml-ptop">
-                        <span className="ml-pcode">{p.code}</span>
-                        {head ? <span className="ml-pcode">{head.v}</span> : null}
-                      </div>
-                      <h3 className="ml-pname">{p.name}</h3>
-                      <p className="ml-pkind">{p.kind}</p>
-                      <p className="ml-pdesc">{rich(p.desc)}</p>
-                      {nums.length > 0 && (
-                        <div className="ml-pnums">
-                          {nums.map((s, j) => (
-                            <span key={j}>
-                              <b>{s.v}</b>
-                              {s.l}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
+            {!duplex && <MoonlightProjects data={data} />}
 
             <div className="ml-rail" aria-hidden="true">
               <i />
@@ -499,22 +585,7 @@ export function MoonlightPage({ data }: { data: ResumeData }) {
               </div>
             </section>
 
-            <section className="ml-panel" data-panel="education">
-              <PanelHead no={education.no} en={credEn} zh={credZh} />
-              <div className="ml-citem">
-                <div className="ml-crow">
-                  <b>{education.school}</b>
-                  <span className="ml-cyr">{education.date}</span>
-                </div>
-                <div className="ml-cs">{education.schoolMeta}</div>
-                <div className="ml-cd">{education.degree}</div>
-              </div>
-              <ul className="ml-clist">
-                {education.items.map((item, i) => (
-                  <li key={i}>{rich(item)}</li>
-                ))}
-              </ul>
-            </section>
+            {!duplex && <MoonlightEducation data={data} />}
 
             <section className="ml-panel ml-spec">
               <PanelHead no="06" en="SPEC" />
@@ -541,52 +612,7 @@ export function MoonlightPage({ data }: { data: ResumeData }) {
         </div>
 
         {/* ---- 页脚 ---- */}
-        <footer className="ml-foot" data-panel="footer">
-          {flags.showFlow && (
-            <div className="ml-process" data-panel="flow">
-              <span>
-                <b>{flow.label}</b>
-              </span>
-              {flow.steps.map((s, i) => (
-                <span key={i}>{s}</span>
-              ))}
-              <span className="ml-ptag">{flow.tag}</span>
-            </div>
-          )}
-
-          <div className="ml-foot-main">
-            <div className="ml-contactcard" aria-label="联系方式">
-              {header.contacts.slice(0, 3).map((c, i) => (
-                <div className="ml-cc" key={i}>
-                  <span className="no">{pad2(i + 1)}.</span>
-                  <span className="nm">{c.label}</span>
-                  <span className="v">{c.value}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="ml-plate">
-              <b>{footer.plateTop}</b>
-              <span>{footer.plateSub}</span>
-            </div>
-
-            <div className="ml-foot-info">
-              <div className="ml-fline">
-                <i className="sq" aria-hidden="true" />
-                <em>
-                  {header.nameZh} · {header.nameEn}
-                </em>
-              </div>
-              {footLine2 ? <div className="ml-fline">{footLine2}</div> : null}
-              {footer.product ? <div className="ml-fline">{footer.product}</div> : null}
-              <div className="ml-fline">{footer.copyright}</div>
-            </div>
-          </div>
-
-          <div className="ml-bleed" aria-hidden="true">
-            {footer.word}
-          </div>
-        </footer>
+        <MoonlightFoot data={data} />
       </div>
 
       {/* ---- 页面级装饰：细线扫描层 / 贴边竖排字 ---- */}
@@ -599,4 +625,123 @@ export function MoonlightPage({ data }: { data: ResumeData }) {
       </div>
     </div>
   );
+}
+
+/* ---------------------------------------------------------------------------
+   duplex page 2
+   ------------------------------------------------------------------------- */
+
+/** 双页第 2 页：项目档案 + 证书 + 规格，页脚与第 1 页共享。 */
+function MoonlightDuplexPage2({ data, day }: { data: ResumeData; day?: boolean }) {
+  const { header, projects, education, footer, strip } = data;
+  const title = projects.title || "SELECTED WORK";
+  const titleMm = Math.min(17, 176 / Math.max(1, title.length * 0.64));
+  const statusMain = header.status[1] ?? "";
+  const statusMode = header.status[2] ?? "";
+  const kickerItems = [header.tag, header.brand, header.brandSub, strip.a, strip.date].filter(Boolean);
+  const specRows = [
+    { k: "BASE", v: statusMain },
+    { k: "MODE", v: statusMode },
+    { k: "SPAN", v: strip.date },
+    { k: "LEVEL", v: header.titleEn },
+    { k: "SHEET", v: "SHEET 02 / 02" },
+  ].filter((r) => Boolean(r.v));
+
+  return (
+    <div className={`tpl-page t-moonlight${day ? " t-moonlight-day" : ""}`} style={{ "--blue": data.theme.accent } as CSSProperties}>
+      <div className="tpl-flow">
+        <header className="ml-p2head" data-panel="identity">
+          <p className="ml-kicker">
+            <i aria-hidden="true" />
+            {kickerItems.map((item, i) => (
+              <span key={i}>
+                {i > 0 ? <span className="sep">/</span> : null}
+                {item}
+              </span>
+            ))}
+            <span className="sep">/</span>
+            <b className="ml-name-cn">{header.nameZh}</b>
+          </p>
+
+          <h1 className="ml-mega" aria-label={`${title} · ${projects.zh}`}>
+            <span className="ml-ln" style={{ fontSize: `${titleMm}mm` }}>
+              {title}
+            </span>
+            <span className="ml-ln ml-ln-cn">{projects.zh}</span>
+          </h1>
+
+          <div className="ml-role">
+            <span className="ml-role-cn">
+              {header.nameZh} · {header.titleZh}
+            </span>
+            <span className="ml-role-en">{header.titleEn}</span>
+            <span className="ml-role-note">APPENDIX · SHEET 02 / 02</span>
+          </div>
+        </header>
+
+        <div className="ml-body ml-body--p2">
+          <div className="ml-main">
+            <MoonlightProjects data={data} />
+            <div className="ml-rail" aria-hidden="true">
+              <i />
+              <span>{footer.sig.split(/\n+/).filter(Boolean).join(" · ")}</span>
+              <span className="line" />
+              <b>{footer.code}</b>
+            </div>
+          </div>
+
+          <aside className="ml-side">
+            <MoonlightEducation data={data} />
+
+            <section className="ml-panel ml-spec">
+              <PanelHead no="06" en="SPEC" />
+              <dl className="ml-spec-list">
+                {specRows.map((r, i) => (
+                  <div key={i}>
+                    <dt>{r.k}</dt>
+                    <dd>{r.v}</dd>
+                  </div>
+                ))}
+              </dl>
+              <span className="ml-checker" aria-hidden="true" />
+            </section>
+
+            <div className="ml-rail" aria-hidden="true">
+              <i />
+              <span>END OF RAIL</span>
+              <span className="line" />
+              <b>
+                {projects.no} — {education.no}
+              </b>
+            </div>
+          </aside>
+        </div>
+
+        <MoonlightFoot data={data} />
+      </div>
+
+      <div className="ml-grain" aria-hidden="true" />
+      <div className="ml-edge l" aria-hidden="true">
+        <span>{footer.edgeL}</span>
+      </div>
+      <div className="ml-edge r" aria-hidden="true">
+        <span>{footer.edgeR}</span>
+      </div>
+    </div>
+  );
+}
+
+export function MoonlightPage({
+  data,
+  day,
+  page = 0,
+  duplex = false,
+}: {
+  data: ResumeData;
+  day?: boolean;
+  page?: number;
+  duplex?: boolean;
+}) {
+  if (duplex && page === 1) return <MoonlightDuplexPage2 data={data} day={day} />;
+  return <MoonlightPageBody data={data} day={day} page={page} duplex={duplex} />;
 }

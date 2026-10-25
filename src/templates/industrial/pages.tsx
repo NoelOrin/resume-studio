@@ -420,10 +420,10 @@ function Foot({ data }: { data: ResumeData }) {
   );
 }
 
-function PageRoot({ data, extraClass, children }: { data: ResumeData; extraClass?: string; children: ReactNode }) {
+function PageRoot({ data, extraClass, day, children }: { data: ResumeData; extraClass?: string; day?: boolean; children: ReactNode }) {
   return (
     <div
-      className={`tpl-page t-industrial${extraClass ? ` ${extraClass}` : ""}`}
+      className={`tpl-page t-industrial${extraClass ? ` ${extraClass}` : ""}${day ? " t-industrial-day" : ""}`}
       style={{ "--blue": data.theme.accent } as CSSProperties}
     >
       <Regs />
@@ -434,9 +434,9 @@ function PageRoot({ data, extraClass, children }: { data: ResumeData; extraClass
 }
 
 /** Classic single-page industrial label resume. */
-export function IndustrialClassicPage({ data }: { data: ResumeData }) {
+export function IndustrialClassicPage({ data, day }: { data: ResumeData; day?: boolean }) {
   return (
-    <PageRoot data={data}>
+    <PageRoot data={data} day={day}>
       <div className="tpl-flow">
         <Strip data={data} />
         <IdCard data={data} />
@@ -459,9 +459,9 @@ export function IndustrialClassicPage({ data }: { data: ResumeData }) {
 }
 
 /** Duplex page 1: identity + profile + full experience + stack. */
-export function IndustrialDuplexPage1({ data }: { data: ResumeData }) {
+export function IndustrialDuplexPage1({ data, day }: { data: ResumeData; day?: boolean }) {
   return (
-    <PageRoot data={data}>
+    <PageRoot data={data} day={day}>
       <div className="tpl-flow">
         <Strip data={data} page={0} pages={2} />
         <IdCard data={data} />
@@ -475,9 +475,9 @@ export function IndustrialDuplexPage1({ data }: { data: ResumeData }) {
 }
 
 /** Duplex page 2: project showcase + credentials + footer. */
-export function IndustrialDuplexPage2({ data }: { data: ResumeData }) {
+export function IndustrialDuplexPage2({ data, day }: { data: ResumeData; day?: boolean }) {
   return (
-    <PageRoot data={data} extraClass="t-industrial--p2">
+    <PageRoot data={data} extraClass="t-industrial--p2" day={day}>
       <div className="tpl-flow">
         <Strip data={data} page={1} pages={2} />
         <div className="p2-hero" data-panel="identity">
@@ -507,7 +507,7 @@ export function IndustrialDuplexPage2({ data }: { data: ResumeData }) {
   );
 }
 
-export function IndustrialPage({ data, page, duplex }: { data: ResumeData; page: number; duplex: boolean }) {
-  if (!duplex) return <IndustrialClassicPage data={data} />;
-  return page === 0 ? <IndustrialDuplexPage1 data={data} /> : <IndustrialDuplexPage2 data={data} />;
+export function IndustrialPage({ data, page, duplex, day }: { data: ResumeData; page: number; duplex: boolean; day?: boolean }) {
+  if (!duplex) return <IndustrialClassicPage data={data} day={day} />;
+  return page === 0 ? <IndustrialDuplexPage1 data={data} day={day} /> : <IndustrialDuplexPage2 data={data} day={day} />;
 }

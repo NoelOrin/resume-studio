@@ -422,4 +422,13 @@ export const MOONLIGHT_CSS = String.raw`
   white-space:nowrap;margin-left:-1mm;margin-bottom:-.12em;
   transform:scaleX(.99);transform-origin:left top;user-select:none;
 }
+/* ==========================================================================
+   6. DUPLEX PAGE 2 —— 项目档案附录页
+   ========================================================================== */
+.t-moonlight .ml-p2head{
+  position:relative;z-index:3;flex:0 0 auto;
+  padding:7mm var(--pad) 0;
+}
+.t-moonlight .ml-body--p2{grid-template-areas:"main side"}
+.t-moonlight .ml-body--p2 .ml-main .ml-rail{margin-top:auto}
 `;

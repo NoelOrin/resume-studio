@@ -48,6 +48,9 @@ defineTemplate({
    一条裸选择器（如 `h2{...}`）会污染所有模板。
 5. **全部页可渲染且不抛错**。多页模板的每一页都会被校验。
 6. **id 唯一且 kebab-case**（进入 CSS 类名与文件路径）。
+7. **每个模板家族必须有第二页**：除了单页条目，同一家族还要注册一个 `<id>-duplex` 变体
+   （`pages: 2`、`cssScope` 指向共享实现，参照 industrial-duplex / minimal-duplex）。
+   页面拆分标准见 §5.1；`npm run tpl:new` 生成的骨架已自带单页 + 双页两条目。
 
 ## 3. 结构约定（推荐，产品一致性的来源）
 
@@ -92,6 +95,15 @@ defineTemplate({
 `.t-industrial`。契约测试与工厂都按 `cssScope ?? id` 校验，不写会在两条目之一上报错。
 页内差异用修饰类（如 `t-industrial--p2`）。
 
+**双页拆分标准**（§2 硬性约定第 7 条）——duplex 变体的两页按内容职责切：
+
+- **第 1 页 = 履历**：身份 + 简介 + 完整工作经历（+ 技术栈）。
+- **第 2 页 = 项目档案附录**：大标题引言（如「项目档案 / SELECTED WORK」）+ 项目展示 + 证书/教育 + 联系方式，页脚照常收底。
+- 页码自算，不读 `strip.sheet`（那是单页的 "SHEET 01 / 01"）：`duplex ? \`SHEET 0${page + 1} / 02\` : strip.sheet`。
+- 第 1 页移出的区块在双页模式下**完全不留空位**（条件渲染，参照 §3 条件区块）。
+- `render: (data, page) => <XxxPage data={data} page={page} duplex />`，组件内
+  `if (duplex && page === 1) return <附录页 />`。
+
 ### 5.2 按内容分页
 
 `pages: (data) => Math.max(1, Math.ceil(data.experience.jobs.length / N))`；
@@ -106,6 +118,7 @@ defineTemplate({
 ## 6. 提交前检查清单
 
 - [ ] `npm run preview:tpl -- <id>` 每页 `FITS=yes`，截图肉眼过一遍
+- [ ] 双页变体（`<id>-duplex`）同样逐页预览：第 1 页履历完整、第 2 页项目档案不空不挤
 - [ ] `npm run check && npm test` 全绿（契约测试自动覆盖你的模板）
 - [ ] 模板库卡片信息完整：`name/nameZh/description/tags`，`accent` 是模板的"本命色"
 - [ ] 换 3 种主色 + 关掉全部 `flags` 再预览一次（主题联动与条件区块）

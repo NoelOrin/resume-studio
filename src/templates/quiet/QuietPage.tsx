@@ -30,7 +30,7 @@ function Rail({ no, title, zh, meta }: { no: string; title: string; zh: string; 
   );
 }
 
-export function QuietPage({ data }: { data: ResumeData }) {
+function QuietPageBody({ data, page = 0, duplex = false }: { data: ResumeData; page?: number; duplex?: boolean }) {
   const { header, profile, stack, education, experience, projects, flow, footer, strip, flags } = data;
 
   const [profileEn, profileZh] = splitKicker(profile.kicker);
@@ -54,7 +54,7 @@ export function QuietPage({ data }: { data: ResumeData }) {
             </div>
             <div className="qt-mid">{header.tag.replace(/\s*\/\s*/, " · ")}</div>
             <div className="qt-right">
-              {strip.date} · {strip.sheet}
+              {strip.date} · {duplex ? `SHEET 0${page + 1} / 02` : strip.sheet}
             </div>
           </div>
 
@@ -98,6 +98,7 @@ export function QuietPage({ data }: { data: ResumeData }) {
           </div>
         </header>
 
+        {(page === 0 || !duplex) && (
         <section className="qt-band" data-panel="profile">
           <Rail
             no={profile.no}
@@ -121,7 +122,9 @@ export function QuietPage({ data }: { data: ResumeData }) {
             </div>
           </div>
         </section>
+        )}
 
+        {(page === 0 || !duplex) && (
         <section className="qt-band" data-panel="experience">
           <Rail
             no={experience.no}
@@ -150,7 +153,9 @@ export function QuietPage({ data }: { data: ResumeData }) {
             ))}
           </div>
         </section>
+        )}
 
+        {(page === 1 || !duplex) && (
         <section className="qt-band" data-panel="projects">
           <Rail no={projects.no} title={projects.title} zh={projects.zh} meta={[projects.meta]} />
           <div className="qt-body">
@@ -177,7 +182,9 @@ export function QuietPage({ data }: { data: ResumeData }) {
             </ol>
           </div>
         </section>
+        )}
 
+        {(page === 1 || !duplex) && (
         <section className="qt-band qt-band-pair">
           <div className="qt-pair">
             <div className="qt-cell" data-panel="stack">
@@ -240,6 +247,7 @@ export function QuietPage({ data }: { data: ResumeData }) {
             ))}
           </div>
         </section>
+        )}
 
         <footer className="qt-foot" data-panel="footer">
           {flags.showFlow ? (
@@ -274,4 +282,10 @@ export function QuietPage({ data }: { data: ResumeData }) {
       </div>
     </div>
   );
+}
+
+export function QuietPage({ data, page = 0, duplex = false }: { data: ResumeData; page?: number; duplex?: boolean }) {
+  /* 双页第 2 页：项目规格索引 + 技术栈/证书（页脚与第 1 页共享）。 */
+  if (duplex && page === 1) return <QuietPageBody data={data} page={1} duplex />;
+  return <QuietPageBody data={data} page={0} duplex={duplex} />;
 }
