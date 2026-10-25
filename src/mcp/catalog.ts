@@ -48,14 +48,14 @@ export const MCP_WORKFLOW: string[] = [
   "list_resumes 找到目标文档（返回 id / 标题 / 更新时间 / 模板）。",
   "get_resume 读取完整数据（ResumeData）。",
   "用 patch_resume 做最小必要修改；只有新建或整份替换时才用 save_resume。",
-  "check_resume 确认页数与数据问题；需要成品文件时才用 render_resume_html（工业标签模板一页内容有限，注意溢出）。",
+  "check_resume 确认页数与数据问题；需要成品文件时用 render_resume_html，或直接产出 PDF / PNG（render_resume_pdf / render_resume_png，自动入存档库）。",
   "publish_resume 发布为 /p/<id> 分享页。",
 ];
 
 /** Sent to every MCP client as the server `instructions`. */
 export const MCP_INSTRUCTIONS = `Resume Studio 是一个多模板简历编辑器。你在这里可以读写真实简历文档并产出可直接分发的 HTML。
 
-可用模板（templateId）：industrial（工业标签单页）、industrial-duplex（工业标签双页）、minimal（极简单页）、moonlight（月光海报单页，暗底 + Kiwi 绿）、quiet（色卡规格表单页，纸白印刷风）。
+可用模板（templateId）：industrial（工业标签单页）、industrial-duplex（工业标签双页）、industrial-day（工业标签日光单页，亮色）、industrial-day-duplex（工业标签日光双页，亮色）、minimal（极简单页）、moonlight（月光海报单页，暗底 + Kiwi 绿）、moonlight-day（月光海报日光版，米白纸面 + 苔绿）、quiet（色卡规格表单页，纸白印刷风）。
 
 推荐工作流：
 ${MCP_WORKFLOW.map((step, index) => `${index + 1}. ${step}`).join("\n")}
@@ -124,6 +124,30 @@ export const MCP_TOOLS: McpToolDoc[] = [
     description: "把简历渲染成自包含的多页 HTML（内联全部 CSS，不依赖本站 JS），可直接保存或分发。用 id 渲染已存文档，或用 data 渲染临时内容，二选一。返回 JSON，其中 html 字段是完整文件。",
     whenToUse: "要成品文件、或想确认页数有没有溢出时。",
     example: "把 lin-zhiyuan 渲染成自包含 HTML，并告诉我总页数有没有超过一页",
+  },
+  {
+    name: "render_resume_pdf",
+    title: "渲染简历 PDF",
+    description:
+      "用服务端无头浏览器把简历渲染成 A4 PDF 并存入存档库（.data/archive/），返回 archiveId、下载路径 /api/archive/<id>、页数与文件名。用 id 渲染已存文档，或用 data 渲染临时内容，二选一。需要服务器装有 Edge / Chrome / Chromium（可用 EDGE_BIN 指定）。",
+    whenToUse: "要直接可投递的 PDF 文件、或要验证打印分页时。",
+    example: "把 lin-zhiyuan 渲染成 PDF，存入存档库并给我下载路径",
+  },
+  {
+    name: "render_resume_png",
+    title: "渲染简历 PNG 长图",
+    description:
+      "用服务端无头浏览器把简历渲染成 2 倍分辨率的整页 PNG 长图（全部页面纵向拼接）并存入存档库，返回 archiveId 与下载路径 /api/archive/<id>。用 id 渲染已存文档，或用 data 渲染临时内容，二选一。需要服务器装有 Edge / Chrome / Chromium（可用 EDGE_BIN 指定）。",
+    whenToUse: "要发社交 / 内嵌文档的整页图片时。",
+    example: "把 lin-zhiyuan 渲染成 PNG 长图，告诉我文件大小",
+  },
+  {
+    name: "list_archives",
+    title: "列出存档",
+    description:
+      "列出存档库中全部导出产物（JSON / HTML / PDF / PNG）：id、文件名、格式、字节数与创建时间，按时间倒序。产物下载路径为 /api/archive/<id>。",
+    whenToUse: "想找回之前的导出产物、或盘点存档时。",
+    example: "列出现在存档库里都有哪些导出文件",
   },
   {
     name: "publish_resume",
@@ -224,6 +248,7 @@ export const MCP_EXAMPLES: string[] = [
   "把项目经历里第三条要点改得更量化，保留 {指标} 写法",
   "先检查这份简历有没有缺段落、会不会超页，然后再发布",
   "把这份简历渲染成 HTML 发我，并说明有没有溢出到第二页",
+  "把这份简历渲染成 PDF 和 PNG 长图存入存档库，给我下载路径",
   "发布这份简历，把分享链接发我",
 ];
 

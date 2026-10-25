@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -22,6 +22,7 @@ const {
   saveResume,
 } = await import("../src/mcp/tools");
 const { McpToolError } = await import("../src/mcp/util");
+const { readPublished } = await import("../src/server/store");
 
 function jsonOf(result: CallToolResult): Record<string, any> {
   const block = result.content?.find((item) => item.type === "text");
@@ -109,14 +110,14 @@ test("render_resume_html requires exactly one input", async () => {
   await assert.rejects(() => renderResume({}), (e: unknown) => e instanceof McpToolError);
 });
 
-test("publish_resume writes the shareable HTML file", async () => {
+test("publish_resume stores the shareable HTML page", async () => {
   const published = jsonOf(await publishResume({ id: "lin-zhiyuan" }));
   assert.equal(published.ok, true);
   assert.equal(published.path, "/p/lin-zhiyuan");
   assert.equal(published.url, "/p/lin-zhiyuan");
 
-  const html = await readFile(path.join(dataDir, "published", "lin-zhiyuan.html"), "utf8");
-  assert.ok(html.startsWith("<!doctype html>"));
+  const html = await readPublished("lin-zhiyuan");
+  assert.ok(html?.startsWith("<!doctype html>"));
 });
 
 test("check_resume reports metadata without the html payload", async () => {
@@ -229,6 +230,41 @@ test("delete_resume is idempotent", async () => {
   const second = jsonOf(await deleteResume("lin-zhiyuan"));
   assert.equal(second.deleted, false);
   await assert.rejects(() => getResume("lin-zhiyuan"), (e: unknown) => e instanceof McpToolError);
+});
+
+const { renderResumeArtifact, listArchiveLibrary: listArchiveTool } = await import("../src/mcp/tools");
+const { probeBrowserBin } = await import("../src/server/artifacts");
+
+test("list_archives reports the archive library", async () => {
+  const body = jsonOf(await listArchiveTool());
+  assert.equal(body.count, body.archives.length);
+});
+
+test(
+  "render_resume_pdf renders, archives and reports the artifact path",
+  { skip: probeBrowserBin() ? false : "no chromium browser on this machine" },
+  async () => {
+    const body = jsonOf(await renderResumeArtifact("pdf", { data: defaultResume, title: "MCP 渲染" }));
+    assert.equal(body.format, "pdf");
+    assert.ok(body.archiveId, "artifact is archived");
+    assert.equal(body.path, `/api/archive/${body.archiveId}`);
+    assert.ok(body.bytes > 0);
+    assert.ok(body.pages >= 1);
+
+    const listed = jsonOf(await listArchiveTool());
+    assert.ok(listed.archives.some((entry: { id: string }) => entry.id === body.archiveId));
+  },
+);
+
+test("render_resume_png and render_resume_pdf share the id|data contract", async () => {
+  await assert.rejects(
+    () => renderResumeArtifact("png", {}),
+    (error: unknown) => error instanceof McpToolError,
+  );
+  await assert.rejects(
+    () => renderResumeArtifact("pdf", { id: "does-not-exist" }),
+    (error: unknown) => error instanceof McpToolError,
+  );
 });
 
 test("cleanup temp data dir", async () => {

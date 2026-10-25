@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { Accordion } from "./components/Accordion";
+import { ArchiveModal } from "./components/ArchiveModal";
 import { LibraryModal } from "./components/LibraryModal";
 import { SettingsModal, formatVersionLabel } from "./components/SettingsModal";
 import { TemplateBoundary } from "./components/TemplateBoundary";
@@ -17,8 +18,30 @@ import { APP_VERSION } from "./lib/version";
 import { useResumeStore } from "./lib/useResumeStore";
 import { usePageOverflow } from "./lib/usePageOverflow";
 import { useUpdateCheck } from "./lib/useUpdateCheck";
-import { checkHealth, deleteDoc, fileBase, listDocs, publishHtml, putDoc, slugify } from "./lib/backend";
-import { buildStandaloneHtml, copyText, downloadHtml, exportJson } from "./lib/exporters";
+import {
+  checkHealth,
+  clearLegacyStorage,
+  deleteDoc,
+  fetchWorkspace,
+  fileBase,
+  listDocs,
+  publishHtml,
+  putDoc,
+  readLegacyWorkspace,
+  saveWorkspace,
+  slugify,
+  type WorkspaceSnapshot,
+} from "./lib/backend";
+import {
+  archiveClientArtifact,
+  clearArchiveLibrary,
+  deleteArchiveItem,
+  exportArtifact,
+  listArchiveLibrary,
+  NoBrowserExportError,
+  type ArchiveRecord,
+} from "./lib/backend";
+import { buildStandaloneHtml, copyText, downloadBlob, downloadHtml, exportJson } from "./lib/exporters";
 import { migrateDocument } from "./lib/migrate";
 import { PAGE_CSS } from "./styles/pages";
 import { ALL_TEMPLATE_CSS, getTemplate, templates } from "./templates/registry";
@@ -36,8 +59,6 @@ import type { DocRecord, ResumeData, StoredDoc } from "./types";
 
 const SHEET_W = 793.7008;
 const SHEET_H = 1122.5197;
-const TITLE_KEY = "resume-studio:title";
-const DOC_KEY = "resume-studio:doc-id";
 
 // SSR-safe layout effect: avoids the SSR useLayoutEffect warning.
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -58,8 +79,10 @@ const PANELS = [
 type PanelId = (typeof PANELS)[number]["id"];
 
 export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[]; initialDoc: StoredDoc | null }) {
-  const store = useResumeStore(initialDoc?.data ?? defaultResume, { skipLocal: Boolean(initialDoc) });
-  const { data, update, mutate, begin, end, undo, redo, canUndo, canRedo, savedAt, reset, replace } = store;
+  const store = useResumeStore(initialDoc?.data ?? defaultResume);
+  const { data, update, mutate, begin, end, undo, redo, canUndo, canRedo, reset, replace } = store;
+  // Last successful workspace write to the local database (toolbar status).
+  const [savedAt, setSavedAt] = useState<number | null>(null);
 
   const [title, setTitle] = useState(initialDoc?.title ?? "林知远 · 全栈开发工程师");
   const [docId, setDocId] = useState<string | null>(initialDoc?.id ?? null);
@@ -69,7 +92,10 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
   const { mode: zoomMode, scale, setManual, setFit: fitToView, zoomBy } = useZoom(fit);
   const [online, setOnline] = useState<boolean | null>(null);
   const [docs, setDocs] = useState<DocRecord[]>(initialDocs);
+  const [archives, setArchives] = useState<ArchiveRecord[]>([]);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -97,6 +123,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
   const canvasRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
   const toastTimer = useRef<number | undefined>(undefined);
   const scaleRef = useRef(scale);
   const anchorRef = useRef<ZoomAnchor | null>(null);
@@ -118,24 +145,100 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
     toastTimer.current = window.setTimeout(() => setToast(null), ttl);
   }, []);
 
-  /* ---------------- hydration of per-document meta ---------------- */
-  useEffect(() => {
-    if (initialDoc) return;
-    const savedTitle = localStorage.getItem(TITLE_KEY);
-    if (savedTitle) setTitle(savedTitle);
-    const savedId = localStorage.getItem(DOC_KEY);
-    if (savedId) setDocId(savedId);
-  }, [initialDoc]);
+  /* ---------------- workspace persistence (embedded local database) ---------------- */
+  // One server-side record binds title + data + docId — the old localStorage
+  // trio and the crash-recovery draft in one, now surviving port changes and
+  // restarts. `?doc=` skips restore: the server copy is the source of truth.
+  const initDataRef = useRef(data);
+  const initTitleRef = useRef(title);
+  const editedBeforeHydration = useRef(false);
+  const workspaceReady = useRef(false);
 
   useEffect(() => {
-    localStorage.setItem(TITLE_KEY, title);
+    if (data !== initDataRef.current || title !== initTitleRef.current) editedBeforeHydration.current = true;
+  }, [data, title]);
+
+  useEffect(() => {
     document.title = `${title} · Resume Studio`;
   }, [title]);
 
   useEffect(() => {
-    if (docId) localStorage.setItem(DOC_KEY, docId);
-    else localStorage.removeItem(DOC_KEY);
-  }, [docId]);
+    if (initialDoc) {
+      workspaceReady.current = true;
+      return;
+    }
+    let alive = true;
+    void (async () => {
+      let ws: WorkspaceSnapshot | null = null;
+      try {
+        ws = await fetchWorkspace();
+      } catch {
+        /* offline: defaults stay; the first successful save seeds the record */
+      }
+      if (!alive) return;
+      if (!ws) {
+        // One-time migration from the pre-database localStorage (dev browsers;
+        // the desktop webview changed origin on every port re-pick).
+        const legacy = readLegacyWorkspace();
+        if (legacy) {
+          const migrated = migrateDocument(legacy.data);
+          if (migrated) {
+            try {
+              const savedAt = await saveWorkspace({ title: legacy.title, data: migrated, docId: legacy.docId });
+              ws = { title: legacy.title, data: migrated, docId: legacy.docId, savedAt };
+              clearLegacyStorage();
+              if (alive) notify("已把浏览器本地存储的简历迁入本地数据库", "ok", 5000);
+            } catch {
+              /* server unreachable: keep the keys for the next attempt */
+            }
+          } else {
+            clearLegacyStorage();
+          }
+        }
+      }
+      workspaceReady.current = true;
+      if (!alive || !ws) return;
+      if (editedBeforeHydration.current) return; // the user typed first — their edit wins
+      update(() => ws!.data);
+      setTitle(ws.title);
+      setDocId(ws.docId);
+      setSavedAt(ws.savedAt || null);
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDoc]);
+
+  // Debounced persist of the working view; `savedAt` drives the toolbar status.
+  useEffect(() => {
+    if (!workspaceReady.current) return;
+    const timer = window.setTimeout(() => {
+      saveWorkspace({ title, data, docId })
+        .then((at) => setSavedAt(at))
+        .catch(() => {
+          /* offline: the next change retries */
+        });
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [data, title, docId]);
+
+  /* ---------------- export menu ---------------- */
+  useEffect(() => {
+    if (!exportOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!exportMenuRef.current?.contains(event.target as Node)) setExportOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExportOpen(false);
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [exportOpen]);
 
   useEffect(() => {
     let alive = true;
@@ -349,7 +452,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
       const id = ensureId();
       await putDoc(id, title, data);
       setSyncedAt(Date.now());
-      notify(`已保存到 .data/docs/${id}.json`);
+      notify(`已保存到本地数据库（${id}）`);
       void refreshDocs();
     } catch (err) {
       notify(`保存失败：${(err as Error).message}`, "err");
@@ -383,16 +486,65 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
     }
   };
 
-  const downloadCurrentHtml = () => {
-    const html = exportMarkup();
-    if (!html) return;
-    downloadHtml(html, `${fileBase(title)}.html`);
-    notify("已导出单页 HTML（含全部页面）");
+  const refreshArchives = useCallback(async () => {
+    try {
+      const { archives } = await listArchiveLibrary();
+      setArchives(archives);
+    } catch {
+      /* server offline */
+    }
+  }, []);
+
+  /** Client-built artifacts (JSON / HTML) land in the archive right after download. */
+  const archiveProduced = (format: "json" | "html", filename: string, content: string) => {
+    void archiveClientArtifact({
+      format,
+      filename,
+      content,
+      title,
+      templateId: data.templateId,
+      pages: pageTotal,
+      ...(docId ? { docId } : {}),
+    })
+      .then(() => refreshArchives())
+      .catch(() => {
+        /* archiving is best-effort; the download already succeeded */
+      });
   };
 
   const downloadJson = () => {
-    exportJson(data, `${fileBase(title)}.json`);
+    const filename = `${fileBase(title)}.json`;
+    exportJson(data, filename);
+    archiveProduced("json", filename, JSON.stringify(data, null, 2));
     notify("已导出 JSON");
+  };
+
+  const downloadCurrentHtml = () => {
+    const html = exportMarkup();
+    if (!html) return;
+    const filename = `${fileBase(title)}.html`;
+    downloadHtml(html, filename);
+    archiveProduced("html", filename, html);
+    notify("已导出单页 HTML（含全部页面）");
+  };
+
+  const downloadExport = async (format: "pdf" | "png") => {
+    setExportOpen(false);
+    setBusy(true);
+    try {
+      const result = await exportArtifact(format, { data, title, ...(docId ? { docId } : {}) });
+      downloadBlob(result.blob, result.filename);
+      notify(`已导出 ${format.toUpperCase()} · ${result.pages} 页`);
+      void refreshArchives();
+    } catch (err) {
+      if (err instanceof NoBrowserExportError) {
+        notify("未检测到 Edge / Chrome，无法服务端导出；可点「打印」在对话框另存 PDF", "err", 7000);
+      } else {
+        notify(`导出失败：${(err as Error).message}`, "err");
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   const importJson = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -402,12 +554,59 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
     try {
       const parsed = migrateDocument(JSON.parse(await file.text()));
       if (!parsed) throw new Error("文件不是有效的简历 JSON");
-      replace(parsed);
-      setDocId(null);
+      const asNewDoc = window.confirm("把导入的内容存为新文档？\n确定 = 入库并自动保存；取消 = 仅替换当前编辑内容");
       setPage(0);
-      notify(`已导入 JSON · 模板 ${getTemplate(parsed.templateId).nameZh}`);
+      replace(parsed);
+      if (asNewDoc) {
+        const importedTitle = parsed.header.nameZh ? `${parsed.header.nameZh} · 简历` : title;
+        const id = `${slugify(importedTitle) || "resume"}-${Math.random().toString(36).slice(2, 6)}`;
+        setTitle(importedTitle);
+        try {
+          await putDoc(id, importedTitle, parsed);
+          setDocId(id);
+          notify(`已导入并入库（${id}）`);
+        } catch (err) {
+          setDocId(null);
+          notify(`已导入，但入库失败：${(err as Error).message}`, "err");
+        }
+      } else {
+        setDocId(null);
+        notify(`已导入 JSON · 模板 ${getTemplate(parsed.templateId).nameZh}`);
+      }
     } catch (err) {
       notify(`导入失败：${(err as Error).message}`, "err");
+    }
+  };
+
+  const openArchive = async () => {
+    setArchiveOpen(true);
+    await refreshArchives();
+  };
+
+  const removeArchive = async (id: string) => {
+    setBusy(true);
+    try {
+      await deleteArchiveItem(id);
+      await refreshArchives();
+      notify("已删除存档");
+    } catch (err) {
+      notify(`删除失败：${(err as Error).message}`, "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clearAllArchives = async () => {
+    if (!window.confirm("清空全部存档产物？此操作不可撤销。")) return;
+    setBusy(true);
+    try {
+      await clearArchiveLibrary();
+      await refreshArchives();
+      notify("已清空存档库");
+    } catch (err) {
+      notify(`清空失败：${(err as Error).message}`, "err");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -604,14 +803,51 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
               <Btn small onClick={() => setTemplateOpen(true)} title="切换模板">
                 模板
               </Btn>
-              <Btn small variant="ghost" onClick={() => fileRef.current?.click()}>
+              <Btn small variant="ghost" onClick={() => fileRef.current?.click()} title="导入简历 JSON">
                 导入
               </Btn>
-              <Btn small variant="ghost" onClick={downloadJson}>
-                JSON
-              </Btn>
-              <Btn small variant="ghost" onClick={downloadCurrentHtml}>
-                HTML
+              <div className="ed-menu" ref={exportMenuRef}>
+                <Btn
+                  small
+                  variant="ghost"
+                  onClick={() => setExportOpen((open) => !open)}
+                  aria-haspopup="menu"
+                  aria-expanded={exportOpen}
+                  title="导出 JSON / HTML / PDF / PNG（自动存档）"
+                >
+                  导出▾
+                </Btn>
+                {exportOpen && (
+                  <div className="ed-menu-list" role="menu">
+                    <button type="button" role="menuitem" className="ed-menu-item" onClick={downloadJson}>
+                      JSON · 数据
+                    </button>
+                    <button type="button" role="menuitem" className="ed-menu-item" onClick={downloadCurrentHtml}>
+                      HTML · 单文件
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="ed-menu-item"
+                      onClick={() => void downloadExport("pdf")}
+                      disabled={busy}
+                    >
+                      PDF · 打印版
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="ed-menu-item"
+                      onClick={() => void downloadExport("png")}
+                      disabled={busy}
+                    >
+                      PNG · 长图
+                    </button>
+                  </div>
+                )}
+              </div>
+              <Btn small variant="ghost" onClick={() => void openArchive()} title="导出产物存档库">
+                存档
               </Btn>
             </div>
 
@@ -791,6 +1027,16 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
         onLoad={loadDoc}
         onDelete={removeDoc}
         onNew={newCopy}
+      />
+
+      <ArchiveModal
+        open={archiveOpen}
+        records={archives}
+        busy={busy}
+        onClose={() => setArchiveOpen(false)}
+        onRefresh={() => void refreshArchives()}
+        onDelete={(id) => void removeArchive(id)}
+        onClear={() => void clearAllArchives()}
       />
 
       <TemplatePicker

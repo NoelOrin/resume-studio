@@ -86,8 +86,8 @@ await notify("notifications/initialized", {});
 const tools = await rpc("tools/list", {});
 const names = tools.tools.map((tool) => tool.name).sort();
 check(
-  "tools/list exposes 9 tools",
-  names.length === 9,
+  "tools/list exposes 12 tools",
+  names.length === 12,
   names.join(", "),
 );
 
@@ -120,6 +120,14 @@ check(
   "check_resume reports metadata without the html payload",
   !("html" in checkPayload) && checkPayload.pages >= 1 && Array.isArray(checkPayload.issues),
   `${checkPayload.pages} page(s), ${checkPayload.issueCounts?.filled ?? 0} filled issue(s)`,
+);
+
+const archives = await rpc("tools/call", { name: "list_archives", arguments: {} });
+const archivePayload = JSON.parse(archives.content[0].text);
+check(
+  "list_archives reports the archive library",
+  Array.isArray(archivePayload.archives) && archivePayload.count === archivePayload.archives.length,
+  `${archivePayload.count} archived artifact(s)`,
 );
 
 // duplicate_resume needs a stored source doc; write two throwaway docs and clean

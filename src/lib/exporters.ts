@@ -26,8 +26,7 @@ ${exportNode.innerHTML}
 `
 }
 
-export function download(filename: string, content: string, mime: string) {
-  const blob = new Blob([content], { type: mime })
+export function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
@@ -36,6 +35,10 @@ export function download(filename: string, content: string, mime: string) {
   link.click()
   link.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+export function download(filename: string, content: string, mime: string) {
+  downloadBlob(new Blob([content], { type: mime }), filename)
 }
 
 export function exportJson(data: unknown, filename: string) {

@@ -5,6 +5,8 @@ import { auditDocument, type ResumeAudit } from "./audit";
 import { migrateDocument } from "../lib/migrate";
 import type { ResumeData } from "../types";
 import { deleteDoc, listDocs, readDoc, writeDoc, writePublished } from "../server/store";
+import { buildArtifact, NoBrowserError } from "../server/artifacts";
+import { listArchives, writeArchive } from "../server/archive";
 import { catalogEntry } from "../templates/catalog";
 import { renderResumeHtml } from "./render";
 import { publicBaseUrl } from "./config";
@@ -295,7 +297,49 @@ export async function publishResume(input: {
   });
 }
 
-/** Register all 7 tools on a server instance. Descriptions tell the model when to reach for each one. */
+/** Render a stored document (or inline data) to a server-side PDF / PNG and archive it. */
+export async function renderResumeArtifact(
+  format: "pdf" | "png",
+  input: { id?: string; data?: unknown; title?: string },
+): Promise<CallToolResult> {
+  const resolved = await resolveResumeInput(input);
+  let artifact;
+  try {
+    artifact = await buildArtifact(format, resolved.data, resolved.title);
+  } catch (error) {
+    if (error instanceof NoBrowserError) {
+      throw new McpToolError(
+        `${error.message} PDF / PNG 渲染依赖服务器上的 Chromium 系浏览器；可在服务器设置 EDGE_BIN 指定路径。`,
+      );
+    }
+    throw error;
+  }
+
+  const record = await writeArchive(format, artifact.filename, artifact.bytes, {
+    title: resolved.title,
+    templateId: artifact.templateId,
+    pages: artifact.pages,
+  });
+  return toolJson({
+    archiveId: record.id,
+    path: `/api/archive/${record.id}`,
+    filename: record.filename,
+    format,
+    bytes: artifact.bytes.byteLength,
+    pages: artifact.pages,
+    templateId: artifact.templateId,
+    templateName: artifact.templateName,
+    title: resolved.title,
+  });
+}
+
+/** List the archive library: every artifact the server kept, newest first. */
+export async function listArchiveLibrary(): Promise<CallToolResult> {
+  const archives = await listArchives();
+  return toolJson({ count: archives.length, archives });
+}
+
+/** Register every tool on a server instance. Descriptions tell the model when to reach for each one. */
 export function registerTools(server: McpServer): void {
   server.registerTool(
     "list_resumes",
@@ -477,6 +521,68 @@ export function registerTools(server: McpServer): void {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async (input) => runTool("render_resume_html", () => renderResume(input)),
+  );
+
+  const artifactOutput = {
+    archiveId: z.string(),
+    path: z.string(),
+    filename: z.string(),
+    format: z.string(),
+    bytes: z.number(),
+    pages: z.number(),
+    templateId: z.string(),
+    templateName: z.string(),
+    title: z.string(),
+  };
+
+  server.registerTool(
+    "render_resume_pdf",
+    {
+      title: "渲染简历 PDF",
+      description:
+        "用服务端无头浏览器把简历渲染成 A4 PDF 并存入存档库（.data/archive/），返回 archiveId、下载路径 /api/archive/<id>、页数与文件名。用 id 渲染已存文档，或用 data 渲染临时内容，二选一。需要服务器装有 Edge / Chrome / Chromium（可用 EDGE_BIN 指定）。",
+      inputSchema: {
+        id: idSchema.optional().describe("已存文档 id；与 data 二选一"),
+        data: dataSchema.optional().describe("临时简历数据；与 id 二选一"),
+        title: z.string().max(120).optional().describe("PDF 标题（可选）"),
+      },
+      outputSchema: artifactOutput,
+      annotations: { openWorldHint: false },
+    },
+    async (input) => runTool("render_resume_pdf", () => renderResumeArtifact("pdf", input)),
+  );
+
+  server.registerTool(
+    "render_resume_png",
+    {
+      title: "渲染简历 PNG 长图",
+      description:
+        "用服务端无头浏览器把简历渲染成 2 倍分辨率的整页 PNG 长图（全部页面纵向拼接）并存入存档库，返回 archiveId 与下载路径 /api/archive/<id>。用 id 渲染已存文档，或用 data 渲染临时内容，二选一。需要服务器装有 Edge / Chrome / Chromium（可用 EDGE_BIN 指定）。",
+      inputSchema: {
+        id: idSchema.optional().describe("已存文档 id；与 data 二选一"),
+        data: dataSchema.optional().describe("临时简历数据；与 id 二选一"),
+        title: z.string().max(120).optional().describe("图片标题（可选）"),
+      },
+      outputSchema: artifactOutput,
+      annotations: { openWorldHint: false },
+    },
+    async (input) => runTool("render_resume_png", () => renderResumeArtifact("png", input)),
+  );
+
+  server.registerTool(
+    "list_archives",
+    {
+      title: "列出存档",
+      description:
+        "列出存档库中全部导出产物（JSON / HTML / PDF / PNG）：id、文件名、格式、字节数与创建时间，按时间倒序。产物下载路径为 /api/archive/<id>。",
+      inputSchema: {},
+      outputSchema: {
+        count: z.number(),
+        archives: z.array(z.record(z.string(), z.unknown())),
+      },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async () => runTool("list_archives", () => listArchiveLibrary()),
   );
 
   server.registerTool(
