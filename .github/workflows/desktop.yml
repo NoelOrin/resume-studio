@@ -6,16 +6,14 @@ name: desktop
 # so each OS installs dependencies natively, builds the vinext bundle, then packs
 # the result into the installer for that platform.
 #
-# Triggers: manual run, version tags, and pushes touching the desktop shell.
+# Triggers: manual run, version tags, and every push to master/main —
+# each push resolves a version (auto patch-bump), tags it and publishes a
+# GitHub Release with the installers. PRs still build without tagging.
 
 on:
   workflow_dispatch:
   push:
     branches: [master, main]
-    paths:
-      - "src-tauri/**"
-      - "scripts/prepare-desktop-runtime.mjs"
-      - ".github/workflows/desktop.yml"
     tags: ["v*"]
   pull_request:
     paths:
@@ -49,9 +47,64 @@ jobs:
       - run: npm run check
       - run: npm test
 
+  # Every push to master/main releases: if the package.json version has been
+  # released already, bump patch; otherwise release it as-is. The tag feeds
+  # the bundle and release jobs. PRs and manual tag pushes pass through.
+  version:
+    name: resolve + tag version
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.calc.outputs.version }}
+      tagged: ${{ steps.calc.outputs.tagged }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Resolve version
+        id: calc
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          CUR="$(node -p "require('./package.json').version")"
+          if [[ "$EVENT" == "pull_request" || "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "version=$CUR" >> "$GITHUB_OUTPUT"
+            if [[ "$EVENT" == "pull_request" ]]; then
+              echo "tagged=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "tagged=true" >> "$GITHUB_OUTPUT"
+            fi
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git rev-parse -q --verify "refs/tags/v$CUR" >/dev/null; then
+            NEW="$(npm version patch --no-git-tag-version)"
+            NEW="${NEW#v}"
+            npm run version:sync
+            git add package.json package-lock.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src/mcp/config.ts
+            git commit -m "chore(release): v$NEW [skip ci]"
+            git tag "v$NEW"
+            git push origin HEAD:master "refs/tags/v$NEW"
+            echo "version=$NEW" >> "$GITHUB_OUTPUT"
+          else
+            git tag "v$CUR"
+            git push origin "refs/tags/v$CUR"
+            echo "version=$CUR" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tagged=true" >> "$GITHUB_OUTPUT"
+
   bundle:
     name: ${{ matrix.label }}
-    needs: verify
+    needs: [verify, version]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -70,7 +123,10 @@ jobs:
             artifact: resume-studio-windows-x64
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.tagged == 'true' && format('refs/tags/v{0}', needs.version.outputs.version) || github.ref }}
 
       - uses: actions/setup-node@v4
         with:
@@ -144,7 +200,8 @@ jobs:
   # Tag pushes (v*) publish a GitHub Release with every platform installer.
   release:
     name: publish release
-    needs: bundle
+    needs: [version, bundle]
+    if: needs.version.outputs.tagged == 'true'
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -168,7 +225,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG="${GITHUB_REF_NAME}"
+          TAG="v${{ needs.version.outputs.version }}"
           mapfile -d '' FILES < <(find dist -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' \) -print0)
           if [ ${#FILES[@]} -eq 0 ]; then
             echo "::error::no installers found in artifacts"
