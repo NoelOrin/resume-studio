@@ -358,7 +358,7 @@ textarea {
 .ed-toggle input:focus-visible + .ed-toggle-ui,
 .ed-pager button:focus-visible,
 .ed-pager-dots i:focus-visible,
-.ed-tpl-card:focus-visible {
+.ed-tpl-row:focus-visible {
   outline: 2px solid var(--ed-accent);
   outline-offset: 1px;
 }
@@ -1082,42 +1082,55 @@ textarea {
 
 /* ---------------- template picker ---------------- */
 .ed-tpl-modal {
-  width: min(920px, 100%);
+  width: min(1080px, 100%);
+  overflow: hidden;
 }
-.ed-tpl-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  padding: 16px 18px 18px;
+.ed-tpl-body {
+  flex-direction: row;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  height: min(66vh, 640px);
+  max-height: calc(82vh - 130px);
+  min-height: 320px;
 }
-.ed-tpl-card {
+.ed-tpl-list {
+  flex: 0 0 300px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-right: 1px solid var(--ed-line-soft);
+  background: var(--ed-panel-3);
+}
+.ed-tpl-row {
+  display: flex;
+  align-items: center;
   gap: 10px;
-  padding: 10px;
+  padding: 8px;
   border: 1px solid var(--ed-line-soft);
   border-radius: var(--ed-r-lg);
-  background: var(--ed-panel-3);
+  background: var(--ed-paper);
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
-.ed-tpl-card:hover {
+.ed-tpl-row:hover,
+.ed-tpl-row.is-previewed {
   border-color: var(--ed-ink);
-  transform: translateY(-1px);
 }
-.ed-tpl-card.is-active {
+.ed-tpl-row.is-active {
   border-color: var(--ed-blue);
   box-shadow: 0 0 0 2px var(--ed-accent-ring);
-  background: var(--ed-paper);
 }
 .ed-tpl-thumb {
   position: relative;
+  flex: 0 0 auto;
   display: block;
   overflow: hidden;
   background: var(--ed-paper);
   border: 1px solid var(--ed-hair);
-  margin: 0 auto;
 }
 .ed-tpl-mini {
   position: absolute;
@@ -1127,10 +1140,10 @@ textarea {
   transform-origin: top left;
   pointer-events: none;
 }
-.ed-tpl-info {
+.ed-tpl-rowtext {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
 }
 .ed-tpl-name {
@@ -1140,6 +1153,8 @@ textarea {
   display: flex;
   align-items: baseline;
   gap: 8px;
+  min-width: 0;
+  white-space: nowrap;
 }
 .ed-tpl-name em {
   font-family: var(--ed-cn);
@@ -1175,6 +1190,57 @@ textarea {
   background: var(--ed-blue);
   border-color: var(--ed-blue);
   color: var(--ed-paper);
+}
+.ed-tpl-stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ed-tpl-stage-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--ed-line-soft);
+}
+.ed-tpl-stage-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.ed-tpl-stage-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 16px;
+}
+.ed-tpl-stage-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  /* pages scrolled out of view skip rendering until needed */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 734px;
+}
+.ed-tpl-sheet {
+  position: relative;
+  overflow: hidden;
+  background: var(--ed-paper);
+  border: 1px solid var(--ed-hair);
+  box-shadow: 0 14px 34px var(--ed-line-mid);
+}
+.ed-tpl-page-no {
+  font-family: var(--ed-mono);
+  font-size: var(--ed-fs-2xs);
+  letter-spacing: 0.08em;
+  color: var(--ed-faint);
 }
 .ed-tpl-note {
   font-family: var(--ed-mono);
@@ -1247,6 +1313,20 @@ textarea {
 }
 
 /* ---------------- responsive ---------------- */
+@media (max-width: 880px) {
+  .ed-tpl-body {
+    flex-direction: column;
+  }
+  .ed-tpl-list {
+    flex: 0 0 auto;
+    max-height: 216px;
+    border-right: 0;
+    border-bottom: 1px solid var(--ed-line-soft);
+  }
+  .ed-tpl-stage {
+    min-height: 0;
+  }
+}
 @media (max-width: 1500px) {
   .ed-app {
     grid-template-columns: 392px minmax(0, 1fr);
