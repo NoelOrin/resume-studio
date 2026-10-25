@@ -9,6 +9,8 @@ import { MOONLIGHT_CSS } from "./moonlight/styles";
 import { QuietPage } from "./quiet/QuietPage";
 import { QUIET_CSS } from "./quiet/styles";
 
+import { ProofPage } from "./proof/ProofPage";
+import { PROOF_CSS } from "./proof/styles";
 // npm run tpl:new inserts imports for new templates above this line — do not remove
 
 /**
@@ -68,6 +70,16 @@ export const templates: TemplateDefinition[] = [
     tags: ["单页", "极简", "印刷"],
     css: QUIET_CSS,
     render: (data) => <QuietPage data={data} />,
+  }),
+  defineTemplate({
+    id: "proof",
+    nameZh: "打样稿",
+    description: "拼贴小报的安静版：勾线巨字、细规则线与 hairline 网格，无噪点无胶带，主色只做文字点缀。",
+    pages: 1,
+    accent: "#C2431F",
+    tags: ["单页", "印刷", "低调"],
+    css: PROOF_CSS,
+    render: (data) => <ProofPage data={data} />,
   }),
   /* npm run tpl:new inserts new registrations above this line — do not remove */
 ];

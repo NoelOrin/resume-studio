@@ -61,6 +61,9 @@ defineTemplate({
 - **尺寸单位**：页面内边距与栅格用 `mm`，字号用 `pt`——A4 打印是第一公民。
 - **溢出**：`.tpl-page` 自带 `overflow:hidden`，超出即裁切；设计时留出底部余量，
   用 `preview:tpl` 的 `flowOverflow` 数字而不是肉眼判断。
+  注意 `.tpl-flow` 是纵向 flex 容器，子项默认可收缩：一旦自然内容超高，溢出会被
+  静默摊派到空元素上（固定高度的装饰条会被压扁，`scrollHeight` 测不出真实溢出）。
+  固定高度的装饰性子元素（横带、分隔条）一律写 `flex:0 0 auto`，让溢出如实上报。
 - **富文本**：正文里的 `{1.2M}`、`{60%}` 用 `rich()`（`src/templates/kit.tsx`）转成 `<b>`，
   模板内把 `b` 样式化为等宽强调。不要自己再实现一遍。
 - **条件区块**：`data.flags.showYears / showStats / showFlow` 控制可选区块，关闭时**完全不留空位**。

@@ -8,6 +8,7 @@ const dataDir = await mkdtemp(path.join(tmpdir(), "resume-mcp-e2e-"));
 process.env.RESUME_DATA_DIR = dataDir;
 
 const { defaultResume } = await import("../src/data/defaultResume");
+const { templates } = await import("../src/templates/registry");
 const { createMcpServer } = await import("../src/mcp/server");
 const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
 const { InMemoryTransport } = await import("@modelcontextprotocol/sdk/inMemory.js");
@@ -118,7 +119,7 @@ test("MCP client can use tools, resources and prompts end to end", async () => {
 
     const templatesResource = await client.readResource({ uri: "resume://templates" });
     assert.ok("text" in templatesResource.contents[0]);
-    assert.equal(JSON.parse(templatesResource.contents[0].text).templates.length, 5);
+    assert.equal(JSON.parse(templatesResource.contents[0].text).templates.length, templates.length);
 
     const prompt = await client.getPrompt({ name: "polish_resume", arguments: { resumeId: id } });
     assert.equal(prompt.messages.length, 1);
