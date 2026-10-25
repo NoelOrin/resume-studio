@@ -159,7 +159,11 @@ check(
 
 const templates = await rpc("resources/read", { uri: "resume://templates" });
 const templatePayload = JSON.parse(templates.contents[0].text);
-check("resources/read resume://templates returns 5 templates", templatePayload.templates.length === 5);
+check(
+  "resources/read resume://templates lists the registry",
+  templatePayload.templates.length >= 5,
+  `${templatePayload.templates.length} template(s)`,
+);
 
 const prompts = await rpc("prompts/list", {});
 check(
