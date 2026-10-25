@@ -232,39 +232,11 @@ test("delete_resume is idempotent", async () => {
   await assert.rejects(() => getResume("lin-zhiyuan"), (e: unknown) => e instanceof McpToolError);
 });
 
-const { renderResumeArtifact, listArchiveLibrary: listArchiveTool } = await import("../src/mcp/tools");
-const { probeBrowserBin } = await import("../src/server/artifacts");
+const { listArchiveLibrary: listArchiveTool } = await import("../src/mcp/tools");
 
 test("list_archives reports the archive library", async () => {
   const body = jsonOf(await listArchiveTool());
   assert.equal(body.count, body.archives.length);
-});
-
-test(
-  "render_resume_pdf renders, archives and reports the artifact path",
-  { skip: probeBrowserBin() ? false : "no chromium browser on this machine" },
-  async () => {
-    const body = jsonOf(await renderResumeArtifact("pdf", { data: defaultResume, title: "MCP 渲染" }));
-    assert.equal(body.format, "pdf");
-    assert.ok(body.archiveId, "artifact is archived");
-    assert.equal(body.path, `/api/archive/${body.archiveId}`);
-    assert.ok(body.bytes > 0);
-    assert.ok(body.pages >= 1);
-
-    const listed = jsonOf(await listArchiveTool());
-    assert.ok(listed.archives.some((entry: { id: string }) => entry.id === body.archiveId));
-  },
-);
-
-test("render_resume_png and render_resume_pdf share the id|data contract", async () => {
-  await assert.rejects(
-    () => renderResumeArtifact("png", {}),
-    (error: unknown) => error instanceof McpToolError,
-  );
-  await assert.rejects(
-    () => renderResumeArtifact("pdf", { id: "does-not-exist" }),
-    (error: unknown) => error instanceof McpToolError,
-  );
 });
 
 test("cleanup temp data dir", async () => {

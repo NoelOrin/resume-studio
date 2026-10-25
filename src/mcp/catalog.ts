@@ -48,7 +48,7 @@ export const MCP_WORKFLOW: string[] = [
   "list_resumes 找到目标文档（返回 id / 标题 / 更新时间 / 模板）。",
   "get_resume 读取完整数据（ResumeData）。",
   "用 patch_resume 做最小必要修改；只有新建或整份替换时才用 save_resume。",
-  "check_resume 确认页数与数据问题；需要成品文件时用 render_resume_html，或直接产出 PDF / PNG（render_resume_pdf / render_resume_png，自动入存档库）。",
+  "check_resume 确认页数与数据问题；需要成品文件时用 render_resume_html。",
   "publish_resume 发布为 /p/<id> 分享页。",
 ];
 
@@ -124,22 +124,6 @@ export const MCP_TOOLS: McpToolDoc[] = [
     description: "把简历渲染成自包含的多页 HTML（内联全部 CSS，不依赖本站 JS），可直接保存或分发。用 id 渲染已存文档，或用 data 渲染临时内容，二选一。返回 JSON，其中 html 字段是完整文件。",
     whenToUse: "要成品文件、或想确认页数有没有溢出时。",
     example: "把 lin-zhiyuan 渲染成自包含 HTML，并告诉我总页数有没有超过一页",
-  },
-  {
-    name: "render_resume_pdf",
-    title: "渲染简历 PDF",
-    description:
-      "用服务端无头浏览器把简历渲染成 A4 PDF 并存入存档库（.data/archive/），返回 archiveId、下载路径 /api/archive/<id>、页数与文件名。用 id 渲染已存文档，或用 data 渲染临时内容，二选一。需要服务器装有 Edge / Chrome / Chromium（可用 EDGE_BIN 指定）。",
-    whenToUse: "要直接可投递的 PDF 文件、或要验证打印分页时。",
-    example: "把 lin-zhiyuan 渲染成 PDF，存入存档库并给我下载路径",
-  },
-  {
-    name: "render_resume_png",
-    title: "渲染简历 PNG 长图",
-    description:
-      "用服务端无头浏览器把简历渲染成 2 倍分辨率的整页 PNG 长图（全部页面纵向拼接）并存入存档库，返回 archiveId 与下载路径 /api/archive/<id>。用 id 渲染已存文档，或用 data 渲染临时内容，二选一。需要服务器装有 Edge / Chrome / Chromium（可用 EDGE_BIN 指定）。",
-    whenToUse: "要发社交 / 内嵌文档的整页图片时。",
-    example: "把 lin-zhiyuan 渲染成 PNG 长图，告诉我文件大小",
   },
   {
     name: "list_archives",

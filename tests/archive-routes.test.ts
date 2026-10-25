@@ -8,11 +8,9 @@ const dataDir = await mkdtemp(path.join(tmpdir(), "resume-routes-"));
 process.env.RESUME_DATA_DIR = dataDir;
 
 const { defaultResume } = await import("../src/data/defaultResume");
-const { POST: postExport } = await import("../app/api/export/[format]/route");
 const { GET: listRoute, POST: postArchive, DELETE: clearRoute } = await import("../app/api/archive/route");
 const { GET: getArchive, DELETE: deleteArchiveRoute } = await import("../app/api/archive/[id]/route");
 const { listArchives, clearArchives } = await import("../src/server/archive");
-const { probeBrowserBin } = await import("../src/server/artifacts");
 
 test.after(async () => {
   await rm(dataDir, { recursive: true, force: true });
@@ -20,77 +18,6 @@ test.after(async () => {
 
 const BASE = "http://localhost";
 const ctx = <T extends Record<string, string>>(params: T) => ({ params: Promise.resolve(params) });
-
-/* ---------------- /api/export/[format] ---------------- */
-
-test("export rejects unknown formats with 404", async () => {
-  const res = await postExport(
-    new Request(`${BASE}/api/export/txt`, {
-      method: "POST",
-      body: JSON.stringify({ data: defaultResume, title: "t" }),
-    }),
-    ctx({ format: "txt" }),
-  );
-  assert.equal(res.status, 404);
-});
-
-test("export rejects non-document payloads with 400", async () => {
-  const res = await postExport(
-    new Request(`${BASE}/api/export/pdf`, {
-      method: "POST",
-      body: JSON.stringify({ data: { nope: 1 }, title: "t" }),
-    }),
-    ctx({ format: "pdf" }),
-  );
-  assert.equal(res.status, 400);
-  const body = (await res.json()) as { error?: string };
-  assert.match(body.error ?? "", /document|简历/i);
-});
-
-const realBrowser = probeBrowserBin();
-test(
-  "export pdf returns the file, archives it and reports the page count",
-  { skip: realBrowser ? false : "no chromium browser on this machine" },
-  async () => {
-    await clearArchives();
-    const res = await postExport(
-      new Request(`${BASE}/api/export/pdf`, {
-        method: "POST",
-        body: JSON.stringify({ data: defaultResume, title: "林知远 · 简历", docId: "doc-a" }),
-      }),
-      ctx({ format: "pdf" }),
-    );
-    assert.equal(res.status, 200);
-    assert.equal(res.headers.get("content-type"), "application/pdf");
-    assert.ok(res.headers.get("content-disposition")?.includes("attachment"));
-    assert.ok(res.headers.get("x-archive-id"), "successful export is archived");
-    assert.equal(res.headers.get("x-pages"), "1");
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    assert.equal(String.fromCharCode(...bytes.subarray(0, 4)), "%PDF");
-
-    const list = await listArchives();
-    assert.equal(list.length, 1);
-    assert.equal(list[0].format, "pdf");
-    assert.equal(list[0].docId, "doc-a");
-  },
-);
-
-test(
-  "export png archives an image artifact",
-  { skip: realBrowser ? false : "no chromium browser on this machine" },
-  async () => {
-    const res = await postExport(
-      new Request(`${BASE}/api/export/png`, {
-        method: "POST",
-        body: JSON.stringify({ data: defaultResume, title: "简历" }),
-      }),
-      ctx({ format: "png" }),
-    );
-    assert.equal(res.status, 200);
-    assert.equal(res.headers.get("content-type"), "image/png");
-    assert.ok((await listArchives()).some((entry) => entry.format === "png"));
-  },
-);
 
 /* ---------------- /api/archive ---------------- */
 

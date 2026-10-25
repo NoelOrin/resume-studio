@@ -42,8 +42,6 @@ test("MCP client can use tools, resources and prompts end to end", async () => {
         "patch_resume",
         "publish_resume",
         "render_resume_html",
-        "render_resume_pdf",
-        "render_resume_png",
         "save_resume",
       ],
     );

@@ -36,12 +36,10 @@ import {
   archiveClientArtifact,
   clearArchiveLibrary,
   deleteArchiveItem,
-  exportArtifact,
   listArchiveLibrary,
-  NoBrowserExportError,
   type ArchiveRecord,
 } from "./lib/backend";
-import { buildStandaloneHtml, copyText, downloadBlob, downloadHtml, exportJson } from "./lib/exporters";
+import { buildStandaloneHtml, copyText, downloadHtml, exportJson } from "./lib/exporters";
 import { migrateDocument } from "./lib/migrate";
 import { PAGE_CSS } from "./styles/pages";
 import { ALL_TEMPLATE_CSS, getTemplate, templates } from "./templates/registry";
@@ -528,25 +526,6 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
     notify("已导出单页 HTML（含全部页面）");
   };
 
-  const downloadExport = async (format: "pdf" | "png") => {
-    setExportOpen(false);
-    setBusy(true);
-    try {
-      const result = await exportArtifact(format, { data, title, ...(docId ? { docId } : {}) });
-      downloadBlob(result.blob, result.filename);
-      notify(`已导出 ${format.toUpperCase()} · ${result.pages} 页`);
-      void refreshArchives();
-    } catch (err) {
-      if (err instanceof NoBrowserExportError) {
-        notify("未检测到 Edge / Chrome，无法服务端导出；可点「打印」在对话框另存 PDF", "err", 7000);
-      } else {
-        notify(`导出失败：${(err as Error).message}`, "err");
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const importJson = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -813,7 +792,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
                   onClick={() => setExportOpen((open) => !open)}
                   aria-haspopup="menu"
                   aria-expanded={exportOpen}
-                  title="导出 JSON / HTML / PDF / PNG（自动存档）"
+                  title="导出 JSON / HTML（自动存档）"
                 >
                   导出▾
                 </Btn>
@@ -824,24 +803,6 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
                     </button>
                     <button type="button" role="menuitem" className="ed-menu-item" onClick={downloadCurrentHtml}>
                       HTML · 单文件
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="ed-menu-item"
-                      onClick={() => void downloadExport("pdf")}
-                      disabled={busy}
-                    >
-                      PDF · 打印版
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="ed-menu-item"
-                      onClick={() => void downloadExport("png")}
-                      disabled={busy}
-                    >
-                      PNG · 长图
                     </button>
                   </div>
                 )}

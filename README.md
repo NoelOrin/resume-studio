@@ -1,7 +1,7 @@
 # RESUME STUDIO · vinext 全栈多模板简历编辑器
 
 工业标签风简历模板 → 可视化编辑器 → **vinext（Next.js API on Vite）全栈应用**。
-左侧表单实时编辑，右侧 A4 预览；支持 **多套模板 / 多页模板**、撤销重做、自动保存、文档库、发布分享、JSON / HTML / PDF 导出，并通过 **MCP** 把读写、渲染、发布能力开放给 AI 客户端。
+左侧表单实时编辑，右侧 A4 预览；支持 **多套模板 / 多页模板**、撤销重做、自动保存、文档库、发布分享、JSON / HTML 导出，并通过 **MCP** 把读写、渲染、发布能力开放给 AI 客户端。
 
 ```
 Next.js App Router on Vite (vinext 1.2 / Vite 8 / React 19 RSC)

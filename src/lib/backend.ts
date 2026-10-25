@@ -104,26 +104,6 @@ export type ArchiveRecord = {
   docId?: string
 }
 
-export class NoBrowserExportError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'NoBrowserExportError'
-  }
-}
-
-/** `filename*=UTF-8''…` wins over the ASCII `filename="…"` fallback. */
-export function filenameFromDisposition(header: string): string | null {
-  const starred = /filename\*=(?:UTF-8|utf-8)''([^;]+)/.exec(header)?.[1]
-  if (starred) {
-    try {
-      return decodeURIComponent(starred)
-    } catch {
-      /* fall through to the ASCII name */
-    }
-  }
-  return /filename="([^"]*)"/.exec(header)?.[1] ?? null
-}
-
 /** utf-8 safe base64 for small client-side payloads (JSON / HTML files). */
 export function toBase64(text: string): string {
   const bytes = new TextEncoder().encode(text)
@@ -132,29 +112,7 @@ export function toBase64(text: string): string {
   return btoa(binary)
 }
 
-export async function exportArtifact(
-  format: 'pdf' | 'png',
-  input: { data: ResumeData; title: string; docId?: string | null },
-): Promise<{ blob: Blob; filename: string; pages: number }> {
-  const res = await fetch(`/api/export/${format}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ data: input.data, title: input.title, ...(input.docId ? { docId: input.docId } : {}) }),
-  })
-  if (res.status === 503) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new NoBrowserExportError(body.error ?? '未找到可用的浏览器，无法导出。')
-  }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`HTTP ${res.status} ${text.slice(0, 120)}`)
-  }
-  return {
-    blob: await res.blob(),
-    filename: filenameFromDisposition(res.headers.get('content-disposition') ?? '') ?? `resume.${format}`,
-    pages: Number(res.headers.get('x-pages') ?? '0') || 0,
-  }
-}
+/** utf-8 safe base64 for small client-side payloads (JSON / HTML files). */
 
 export async function listArchiveLibrary(): Promise<{ archives: ArchiveRecord[] }> {
   return request<{ archives: ArchiveRecord[] }>('/api/archive')
