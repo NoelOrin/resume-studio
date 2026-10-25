@@ -3,6 +3,12 @@
 工业标签风简历模板 → 可视化编辑器 → **vinext（Next.js API on Vite）全栈应用**。
 左侧表单实时编辑，右侧 A4 预览；支持 **多套模板 / 多页模板**、撤销重做、自动保存、文档库、发布分享、JSON / HTML 导出，并通过 **MCP** 把读写、渲染、发布能力开放给 AI 客户端。
 
+## 截图
+
+| 编辑器（工业标签模板） | 模板库 | 月光海报模板 |
+| --- | --- | --- |
+| ![编辑器](docs/shot-editor.png) | ![模板库](docs/shot-templates.png) | ![月光海报](docs/shot-moonlight.png) |
+
 ```
 Next.js App Router on Vite (vinext 1.2 / Vite 8 / React 19 RSC)
 ├── app/                     路由：页面、Route Handlers、发布页
@@ -265,7 +271,7 @@ npm run desktop:dev       # 只调壳：窗口指向已在跑的 http://localhos
 
 - `verify`：`npm run check` + `npm test`（ubuntu）
 - `bundle`：矩阵构建 **macOS arm64**（`.app` + `.dmg`）与 **Windows x64**（NSIS `.exe`），产物上传到 Actions artifacts（保留 30 天）
-- `release`：打 `v*` tag 时自动创建 **GitHub Release**，附上三个安装包（`.dmg` / `.app.zip` / `-setup.exe`），发行说明按提交自动生成
+- `release`：打 `v*` tag 时自动创建 **GitHub Release**，附上安装包（`.dmg` / `-setup.exe`；`.app.zip` 仅留在 Actions artifacts），发行说明按提交自动生成。产物统一命名 `ResumeStudio-v<版本>-<平台>`，如 `ResumeStudio-v2.3.1-macOS-arm64.dmg`、`ResumeStudio-v2.3.1-windows-x64-setup.exe`
 
 触发方式：手动 `workflow_dispatch`、push 到 `master`/`main` 且改动 `src-tauri/**` 等桌面相关路径、或打 `v*` tag。
 

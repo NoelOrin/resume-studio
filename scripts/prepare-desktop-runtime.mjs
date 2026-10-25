@@ -63,6 +63,18 @@ if (process.platform === "darwin" && !process.argv.includes("--universal")) {
     log("lipo unavailable — keeping universal node");
   }
 }
+// Strip debug/local symbols only (-x); a bare `strip` also removes the
+// exported N-API symbols and every native addon (rolldown, sharp, libsql)
+// fails to load. Re-sign ad-hoc so macOS keeps accepting the binary.
+if (!isWin) {
+  try {
+    execFileSync("strip", ["-x", path.join(runtime, nodeName)]);
+    execFileSync("codesign", ["--force", "--sign", "-", path.join(runtime, nodeName)]);
+    log("stripped node binary");
+  } catch {
+    log("strip/codesign unavailable — keeping unstripped node");
+  }
+}
 if (!isWin) execFileSync("chmod", ["+x", path.join(runtime, nodeName)]);
 
 log("copying package.json");
@@ -84,6 +96,30 @@ if (process.platform === "win32") {
     cwd: runtime,
     stdio: "inherit",
   });
+}
+
+// Prune weight that can never load on the bundled platform:
+// sourcemaps, the wasm fallback for sharp (a native binding is always
+// installed for the host triple), and stray docs. The smoke test below
+// still boots the real server, so an over-prune fails the build here
+// instead of shipping.
+if (!process.argv.includes("--universal")) {
+  log("pruning runtime dead weight");
+  const rm = (p) => rmSync(path.join(runtime, p), { recursive: true, force: true });
+  rm("node_modules/@img/sharp-wasm32");
+  let mapBytes = 0;
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith(".map") || entry.name.endsWith(".md")) {
+        mapBytes += statSync(full).size;
+        rmSync(full);
+      }
+    }
+  };
+  walk(path.join(runtime, "node_modules"));
+  log(`pruned ${(mapBytes / 1024 / 1024).toFixed(1)}MB of maps/docs + sharp-wasm32`);
 }
 
 // Windows keeps file handles open for a moment after kill(); never let temp
