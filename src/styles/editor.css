@@ -201,6 +201,11 @@ textarea {
   overflow-x: auto;
   scrollbar-width: none;
 }
+/* overflow-x:auto implicitly clips the other axis too, which beheads the
+   export dropdown; while the menu is open the toolbar must not clip. */
+.ed-tools--menu-open {
+  overflow: visible;
+}
 .ed-tools::-webkit-scrollbar {
   display: none;
 }

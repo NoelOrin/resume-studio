@@ -511,6 +511,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
   };
 
   const downloadJson = () => {
+    setExportOpen(false);
     const filename = `${fileBase(title)}.json`;
     exportJson(data, filename);
     archiveProduced("json", filename, JSON.stringify(data, null, 2));
@@ -518,6 +519,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
   };
 
   const downloadCurrentHtml = () => {
+    setExportOpen(false);
     const html = exportMarkup();
     if (!html) return;
     const filename = `${fileBase(title)}.html`;
@@ -760,7 +762,8 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
             </span>
           </div>
 
-          <div className="ed-tools">
+          {/* Menu open ⇒ drop the horizontal scroll clip, or the dropdown below gets cut off. */}
+          <div className={`ed-tools${exportOpen ? " ed-tools--menu-open" : ""}`}>
             <div className="ed-group">
               <Btn small variant="ghost" onClick={() => { commitFocused(); undo(); }} disabled={!canUndo} title="撤销 ⌘Z">
                 撤销
