@@ -2,17 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { snapZoom, stepZoom as stepValue, type ZoomMode } from "./zoom";
+import { fetchPrefs, savePrefs, type ZoomPref } from "./backend";
 
-const STORAGE_KEY = "resume-studio:zoom";
-
-type Stored = { mode: "manual"; value: number } | { mode: "fit" };
+type Stored = ZoomPref;
 
 type StoredJson = { mode?: ZoomMode; value?: number };
 
-function readStored(): Stored | null {
+function parseStored(raw: string): Stored | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredJson;
     if (parsed.mode === "manual" && typeof parsed.value === "number") {
       return { mode: "manual", value: snapZoom(parsed.value) };
@@ -26,7 +23,8 @@ function readStored(): Stored | null {
 
 /**
  * Canvas zoom state: either follow the viewport ("fit") or a manual 25%–400%
- * ratio. The preference is local UI state only — never written into the resume.
+ * ratio. The preference is local UI state only — never written into the resume;
+ * it lives in the embedded database (`ui:zoom` kv) via /api/prefs.
  */
 export function useZoom(fit: number) {
   const [mode, setMode] = useState<ZoomMode>("fit");
@@ -36,10 +34,19 @@ export function useZoom(fit: number) {
 
   // Restore after mount so the SSR markup and first client render agree.
   useEffect(() => {
-    const stored = readStored();
-    if (!stored) return;
-    setMode(stored.mode);
-    if (stored.mode === "manual") setValue(stored.value);
+    let alive = true;
+    void fetchPrefs()
+      .then((prefs) => {
+        if (!alive || !prefs.zoom) return;
+        setMode(prefs.zoom.mode);
+        if (prefs.zoom.mode === "manual") setValue(prefs.zoom.value);
+      })
+      .catch(() => {
+        /* server unreachable: stay on defaults */
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   const flush = useCallback(() => {
@@ -48,11 +55,9 @@ export function useZoom(fit: number) {
     const next = pending.current;
     pending.current = null;
     if (!next) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      /* storage unavailable: keep in-memory only */
-    }
+    void savePrefs({ zoom: next }).catch(() => {
+      /* offline: keep in-memory only */
+    });
   }, []);
 
   const persist = useCallback(

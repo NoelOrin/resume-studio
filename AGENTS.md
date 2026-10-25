@@ -6,7 +6,7 @@
 
 Resume Studio——多模板简历编辑器：
 
-- **Web**：vinext（Next.js App Router on Vite）+ React 19 RSC，全栈跑在 Node（Route Handlers + 文件存储）。
+- **Web**：vinext（Next.js App Router on Vite）+ React 19 RSC，全栈跑在 Node（Route Handlers + 内嵌 libSQL 本地库，`src/server/db.ts` 打开 `<RESUME_DATA_DIR>/resume-studio.db`，不用浏览器 localStorage）。
 - **桌面**：Tauri 壳只提供 WebView，内置 Node 运行时拉起 `vinext start`；窗口加载 `http://127.0.0.1:<port>`，拿不到 Tauri IPC（默认无 IPC capability）。
 - **AI 接入**：同一份数据通过 MCP（Streamable HTTP，`/api/mcp`）暴露给客户端。
 

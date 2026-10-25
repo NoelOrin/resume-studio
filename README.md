@@ -10,9 +10,9 @@ Next.js App Router on Vite (vinext 1.2 / Vite 8 / React 19 RSC)
 │   ├── EditorApp.tsx        编辑器（client component）
 │   ├── templates/           模板注册表：industrial / industrial-duplex / minimal / moonlight / quiet
 │   ├── sections/            8 个编辑面板
-│   ├── server/store.ts      文件存储（.data/docs、.data/published）
+│   ├── server/store.ts      文档与发布页存储（内嵌 libSQL 本地库）
 │   └── ...
-└── .data/                   本地数据（gitignore）
+└── .data/                   本地数据（resume-studio.db，gitignore）
 ```
 
 ## 快速开始
@@ -90,7 +90,7 @@ npm run tpl:new blueprint "蓝图"
 - **模板库**：5 套实时缩略图，单击切换；模板默认主色自动适配
 - **主题**：6 套主色 + 任意取色；年份徽标 / 统计 / 流程条可开关
 - **溢出检测**：按当前页检测 `.tpl-flow`，超出 A4 顶部出现黄色警示
-- **自动保存**：localStorage（350ms 防抖）+ 服务器静默同步
+- **自动保存**：本地数据库工作区（400ms 防抖，`PUT /api/workspace`）+ 服务器静默同步
 - **导出**：JSON（v2，含 `templateId`，兼容导入 v1）、自包含 HTML（全部页面）、打印 PDF
 - **文档库**：服务器多份存档；打开走 `/?doc=<id>` 服务端渲染
 - **发布**：`POST /api/publish` → 生成 `/p/<id>` 静态 HTML，复制链接即可分享
@@ -104,10 +104,16 @@ npm run tpl:new blueprint "蓝图"
 | GET | `/api/mcp/info` | MCP 能力清单：端点、传输与鉴权说明、9 个工具 / 3 个资源 / 2 个提示词（含调用词）、可粘贴的客户端配置片段 |
 | GET | `/api/docs` | 文档列表 |
 | GET / PUT / DELETE | `/api/docs/:id` | 读取 / 保存 / 删除（`{ title, data }`） |
-| POST | `/api/publish` | `{ id, title, html }` → `.data/published/<id>.html` |
+| GET / PUT | `/api/workspace` | 编辑器工作区（title + data + docId 单条记录，崩溃恢复即它） |
+| GET / PUT | `/api/prefs` | UI 偏好（缩放 / 更新提示 / 每日检查标记），PUT 为部分更新 |
+| POST | `/api/publish` | `{ id, title, html }` → 发布页（`published` 表） |
 | GET | `/p/:id` | 返回已发布的完整 HTML |
 
-存储目录：`process.env.RESUME_DATA_DIR ?? <cwd>/.data`，文档为 JSON，发布页为自包含 HTML。
+本地数据库：`@libsql/client`（Turso 的嵌入式 libSQL）以 `file:` 模式打开
+`<RESUME_DATA_DIR>/resume-studio.db`（WAL），docs / published / kv 三张表承载全部持久化；
+桌面版数据目录是 `~/Library/Application Support/dev.linzhiyuan.resume-studio/`。首次启动会把旧版
+`.data/docs/*.json` 与 `.data/published/*.html` 一次性导入（原文件保留作备份），浏览器里的旧
+localStorage 键也会迁入工作区后清除。
 `app/page.tsx` 是 **Server Component**：读取文档列表与 `?doc=` 指定文档后传入客户端编辑器；写操作全部走 Route Handlers。
 
 ## MCP（AI 客户端接入）
@@ -152,7 +158,7 @@ npm test                                     # 工具单测 + InMemoryTransport 
 | `delete_resume` | 删除，幂等 |
 | `check_resume` | 预检：返回模板 / 页数 / 字节 / 数据问题清单（filled / coerced / dropped），**不返回 html 正文**，避免大负载进对话 |
 | `render_resume_html` | 服务端渲染多页自包含 HTML（可传 `id` 或临时 `data`） |
-| `publish_resume` | 渲染并写入 `.data/published`，返回 `/p/<id>` |
+| `publish_resume` | 渲染并写入发布页（`published` 表），返回 `/p/<id>` |
 
 ### Resources / Prompts
 
@@ -163,7 +169,7 @@ npm test                                     # 工具单测 + InMemoryTransport 
 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
-| `RESUME_DATA_DIR` | `<cwd>/.data` | 文档与发布页目录，与 REST 共用 |
+| `RESUME_DATA_DIR` | `<cwd>/.data` | 数据目录（内含 `resume-studio.db`），与 REST 共用 |
 | `RESUME_MCP_TOKEN` | 空 | 设置后要求 `Authorization: Bearer <token>`；空 = 不鉴权（建议仅本机） |
 | `RESUME_MCP_ALLOWED_ORIGINS` | 空 | 额外允许的浏览器 Origin，逗号分隔 |
 | `RESUME_PUBLIC_URL` | 空 | 发布结果返回绝对地址 |
@@ -230,7 +236,7 @@ scripts/mcp-smoke.mjs        真实 HTTP 冒烟
 
 ## 桌面版（Tauri）
 
-Tauri 只提供 WebView，而本项目是 Node 全栈服务（Route Handlers + 文件存储 + MCP）。
+Tauri 只提供 WebView，而本项目是 Node 全栈服务（Route Handlers + 内嵌 libSQL 本地库 + MCP）。
 因此桌面壳内置一份 Node 运行时：启动时挑一个空闲端口拉起 `vinext start`，等端口就绪再开窗口，
 退出时杀掉子进程。
 

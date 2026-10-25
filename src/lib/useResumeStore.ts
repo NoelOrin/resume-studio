@@ -1,38 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { defaultResume } from '../data/defaultResume'
-import { migrateDocument } from './migrate'
 import type { ResumeData } from '../types'
 
-const STORAGE_KEY = 'resume-studio:doc'
-const LEGACY_KEYS = ['resume-studio:doc:v1']
-
-export function loadLocal(): ResumeData | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY) ?? LEGACY_KEYS.map((k) => localStorage.getItem(k)).find(Boolean)
-    if (!raw) return null
-    return migrateDocument(JSON.parse(raw))
-  } catch {
-    return null
-  }
-}
-
-export function useResumeStore(initial: ResumeData, options?: { skipLocal?: boolean }) {
+/**
+ * Document state + undo/redo. Persistence deliberately lives one level up
+ * (EditorApp keeps the workspace record in the embedded local database via
+ * /api/workspace), so this hook is storage-free and SSR-safe.
+ */
+export function useResumeStore(initial: ResumeData) {
   const [data, setData] = useState<ResumeData>(initial)
-  const [savedAt, setSavedAt] = useState<number | null>(null)
   const past = useRef<ResumeData[]>([])
   const future = useRef<ResumeData[]>([])
   const session = useRef<ResumeData | null>(null)
   const dataRef = useRef(data)
   const [, force] = useState(0)
-
-  // hydrate from localStorage after mount (avoids SSR/client mismatch)
-  useEffect(() => {
-    if (options?.skipLocal) return
-    const local = loadLocal()
-    if (local) setData(local)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   useEffect(() => {
     dataRef.current = data
@@ -101,19 +82,6 @@ export function useResumeStore(initial: ResumeData, options?: { skipLocal?: bool
 
   const getData = useCallback(() => dataRef.current, [])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const t = window.setTimeout(() => {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-        setSavedAt(Date.now())
-      } catch {
-        /* quota / private mode */
-      }
-    }, 350)
-    return () => window.clearTimeout(t)
-  }, [data])
-
   return {
     data,
     getData,
@@ -125,7 +93,6 @@ export function useResumeStore(initial: ResumeData, options?: { skipLocal?: bool
     redo,
     reset,
     replace,
-    savedAt,
     canUndo: past.current.length > 0,
     canRedo: future.current.length > 0,
   }

@@ -1,15 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { fetchUpdateCheck } from './backend'
+import { fetchPrefs, fetchUpdateCheck, savePrefs } from './backend'
 import type { UpdateCheck } from './update'
 
 export type UpdateCheckState = 'idle' | 'checking' | 'ready' | 'error'
 
-/** Once-a-day auto check marker (per browser session). */
-const CHECKED_AT_KEY = 'resume-studio:update-checked-at'
-/** Last known newer release, so the toolbar reminder survives reloads. */
-const PILL_CACHE_KEY = 'resume-studio:update-pill'
-/** Let the editor paint before the silent check competes for bandwidth. */
+/**
+ * Once-a-day auto check marker, kept in the embedded database (`update:checked-at`)
+ * so it holds across restarts — the old sessionStorage copy reset per session.
+ * Last known newer release (`update:pill`) survives reloads the same way.
+ */
 const AUTO_CHECK_DELAY = 3000
+
+/** Sync-readable copy of the two persisted markers, hydrated once per load. */
+let prefCache: { pill?: string | null; checkedAt?: string | null } = {}
+let prefCacheLoading: Promise<void> | null = null
+
+function ensurePrefCache(): Promise<void> {
+  prefCacheLoading ??= fetchPrefs()
+    .then((prefs) => {
+      prefCache = { pill: prefs.pill ?? null, checkedAt: prefs.checkedAt ?? null }
+    })
+    .catch(() => {
+      /* offline: empty cache means "check on every mount", which is safe */
+      prefCacheLoading = null
+    })
+  return prefCacheLoading
+}
 
 function todayKey(): string {
   const now = new Date()
@@ -19,37 +35,22 @@ function todayKey(): string {
 }
 
 function readCheckedAt(): string | null {
-  try {
-    return sessionStorage.getItem(CHECKED_AT_KEY)
-  } catch {
-    // Private mode / storage disabled: just check every mount.
-    return null
-  }
+  return prefCache.checkedAt ?? null
 }
 
 function markChecked(): void {
-  try {
-    sessionStorage.setItem(CHECKED_AT_KEY, todayKey())
-  } catch {
-    /* ignore */
-  }
-}
-
-function readPillCache(): string | null {
-  try {
-    return localStorage.getItem(PILL_CACHE_KEY)
-  } catch {
-    return null
-  }
+  const today = todayKey()
+  prefCache = { ...prefCache, checkedAt: today }
+  void savePrefs({ checkedAt: today }).catch(() => {
+    /* offline: the in-memory marker still throttles this session */
+  })
 }
 
 function writePillCache(latest: string | null): void {
-  try {
-    if (latest) localStorage.setItem(PILL_CACHE_KEY, latest)
-    else localStorage.removeItem(PILL_CACHE_KEY)
-  } catch {
-    /* ignore */
-  }
+  prefCache = { ...prefCache, pill: latest }
+  void savePrefs({ pill: latest }).catch(() => {
+    /* offline: the live check result still drives the UI this session */
+  })
 }
 
 function isAbort(err: unknown): boolean {
@@ -67,7 +68,7 @@ function readableError(err: unknown): string {
 /**
  * Update-check state machine for the settings dialog.
  *
- * - one silent check 3s after mount, skipped when this session already checked today
+ * - one silent check 3s after mount, skipped when today's check already ran
  * - re-checks on window focus once the day marker rolls over (a desktop app can
  *   stay open for days; the mount-time check alone would never see a new release)
  * - `onAutoUpdate` fires only for a silent discovery — manual checks happen with
@@ -79,11 +80,10 @@ export function useUpdateCheck(options?: { onAutoUpdate?: (check: UpdateCheck) =
   const [state, setState] = useState<UpdateCheckState>('idle')
   const [check, setCheck] = useState<UpdateCheck | null>(null)
   const [error, setError] = useState<string | null>(null)
-  // Seeded from localStorage so the toolbar reminder reappears on reload
-  // without waiting for (or spamming) the network check.
-  const [pillLatest, setPillLatest] = useState<string | null>(() =>
-    typeof window === 'undefined' ? null : readPillCache(),
-  )
+  // Seeded from the cached discovery (db-backed) so the toolbar reminder
+  // reappears on reload without waiting for (or spamming) the network check.
+  const [pillLatest, setPillLatest] = useState<string | null>(null)
+  const [prefsReady, setPrefsReady] = useState(false)
 
   const aliveRef = useRef(true)
   const busyRef = useRef(false)
@@ -98,6 +98,20 @@ export function useUpdateCheck(options?: { onAutoUpdate?: (check: UpdateCheck) =
       abortRef.current?.abort()
       abortRef.current = null
       busyRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    void ensurePrefCache().then(() => {
+      if (!alive) return
+      setPrefsReady(true)
+      const cached = prefCache.pill
+      // Only fill an empty pill: a live check that already landed is fresher.
+      if (cached) setPillLatest((prev) => prev ?? cached)
+    })
+    return () => {
+      alive = false
     }
   }, [])
 
@@ -139,6 +153,9 @@ export function useUpdateCheck(options?: { onAutoUpdate?: (check: UpdateCheck) =
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    // Wait for the cached day marker before deciding to skip: the db read is a
+    // few ms on loopback, far under the 3s auto-check delay.
+    if (!prefsReady) return
     if (readCheckedAt() === todayKey()) return
     const timer = window.setTimeout(() => {
       void checkNow('auto')
@@ -156,7 +173,7 @@ export function useUpdateCheck(options?: { onAutoUpdate?: (check: UpdateCheck) =
       window.clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [checkNow])
+  }, [prefsReady, checkNow])
 
   return { state, check, error, checkNow, pillLatest }
 }
