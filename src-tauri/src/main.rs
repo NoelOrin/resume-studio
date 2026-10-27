@@ -89,6 +89,10 @@ fn boot(app: &mut tauri::App, dev_url: Option<&str>) -> Result<(PathBuf, u16), S
     std::fs::create_dir_all(&data_dir).map_err(|e| format!("无法创建数据目录: {e}"))?;
     let log_path = data_dir.join("server.log");
 
+    // stdout lines are the ops/CI contract (the packaged-app smoke test greps
+    // the serving line for the port); shell.log is the diagnostics copy.
+    println!("[resume-studio] runtime={}", runtime.display());
+    println!("[resume-studio] data={}", data_dir.display());
     logger::log(
         &data_dir,
         "info",
@@ -103,6 +107,7 @@ fn boot(app: &mut tauri::App, dev_url: Option<&str>) -> Result<(PathBuf, u16), S
     app.manage(ServerState(Mutex::new(Some(child))));
 
     let ready = server::wait_for_port(port, Duration::from_secs(45));
+    println!("[resume-studio] serving on http://127.0.0.1:{port}/ ready={ready}");
     logger::log(&data_dir, "info", &format!("内置服务就绪 port={port} ready={ready}"));
 
     if ready {

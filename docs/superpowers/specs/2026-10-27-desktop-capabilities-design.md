@@ -54,7 +54,7 @@ webview（127.0.0.1:<port>）
 ## 关键决策
 
 - **通知抑制统一规则**：系统通知只在用户看不到应用时发。窗口可见 → Rust 侧静默（web toast 已覆盖）、web 侧不发（`document.hasFocus()`）；更新通知按「版本 + 日期」节流，同一版本每天最多一条自动通知。手动「检查更新」绕过节流，无更新时也给确认提示。
-- **日志**：只滚动 `shell.log`（1MB → `shell.log.1`）；`server.log` 归 Node 重定向所有，不动。诊断包读取按 256KB 窗口 seek 尾部，server.log 再大也安全。剪贴板失败时：issue body 内联截断 2000 字符诊断 + 自动打开数据目录让用户手动取日志。
+- **日志**：只滚动 `shell.log`（1MB → `shell.log.1`）；`server.log` 归 Node 重定向所有，不动。诊断包读取按 256KB 窗口 seek 尾部，server.log 再大也安全。剪贴板失败时：issue body 内联截断 2000 字符诊断 + 自动打开数据目录让用户手动取日志。**stdout 契约**：`[resume-studio] serving on http://127.0.0.1:<port>` 等 println 保留——CI 冒烟脚本靠它发现端口（本次实现曾误删导致 CI 红两条，已恢复；stdout=运维/CI 契约，shell.log=诊断副本，并存）。
 - **日志条目**：启动参数、服务就绪/意外退出、托盘创建失败、更新检查结果、通知发送失败、关窗驻留/退出。低频写，每次 open-append-close，不持句柄。
 
 ## 错误处理
