@@ -9,6 +9,10 @@ name: desktop
 # Triggers: manual run, version tags, and every push to master/main —
 # each push resolves a version (auto patch-bump), tags it and publishes a
 # GitHub Release with the installers. PRs still build without tagging.
+#
+# verify (typecheck + tests) runs in parallel with the slow bundle matrix;
+# only the release job waits for it, so broken tests can never publish but
+# never delay bundling either.
 
 on:
   workflow_dispatch:
@@ -59,14 +63,11 @@ jobs:
       tagged: ${{ steps.calc.outputs.tagged }}
     permissions:
       contents: write
+    # Runners ship a recent Node; the job only needs it for npm/node one-liners.
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
 
       - name: Resolve version
         id: calc
@@ -104,7 +105,7 @@ jobs:
 
   bundle:
     name: ${{ matrix.label }}
-    needs: [verify, version]
+    needs: [version]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -218,9 +219,10 @@ jobs:
             ResumeStudio-v*
 
   # Tag pushes (v*) publish a GitHub Release with every platform installer.
+  # Needs verify too: bundling skips the test gate, publishing does not.
   release:
     name: publish release
-    needs: [version, bundle]
+    needs: [verify, version, bundle]
     if: needs.version.outputs.tagged == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15

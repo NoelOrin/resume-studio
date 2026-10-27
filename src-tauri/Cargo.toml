@@ -13,8 +13,9 @@ tauri = { version = "2", features = [] }
 url = "2"
 
 [profile.release]
-codegen-units = 1
-lto = true
+# Thin LTO keeps CI bundle builds fast; the Rust side is a shell around a
+# bundled Node runtime, so fat-LTO size wins are not worth serialized codegen.
+lto = "thin"
 opt-level = "s"
 panic = "abort"
 strip = true
