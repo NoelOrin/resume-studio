@@ -8,97 +8,57 @@
 //   4. kills the server when the app exits.
 //
 // Setup never panics: a failure opens `error.html` so the user sees something
-// actionable instead of a silent crash.
+// actionable instead of a silent crash. Tray/notifications/logging follow the
+// same rule — any failure is logged and the app keeps working without it.
+//
+// Resident mode: once the tray is live, closing the main window hides it and
+// the app keeps running in the tray (macOS keeps the Dock icon). The shell
+// polls the local server's /api/update hourly so update notifications work
+// while the window is closed. See
+// docs/superpowers/specs/2026-10-27-desktop-capabilities-design.md.
 //
 // Dev escape hatches:
 //   RESUME_DEV_URL       point the window at an already-running server
+//                        (port is recorded as 0: no polling, no crash watch)
 //   RESUME_RUNTIME_DIR   use a loose runtime dir instead of the bundled resource
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::fs::File;
-use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+mod logger;
+mod server;
+mod tray;
+mod updater;
+
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_single_instance::init as single_instance_init;
 
-const APP_ID: &str = "dev.linzhiyuan.resume-studio";
+use server::ServerState;
 
-struct ServerState(Mutex<Option<Child>>);
-
-fn free_port() -> u16 {
-    TcpListener::bind(("127.0.0.1", 0))
-        .and_then(|listener| listener.local_addr())
-        .map(|addr| addr.port())
-        .unwrap_or(3178)
+pub struct AppState {
+    pub data_dir: PathBuf,
+    /// Bundled server port; 0 in dev mode (RESUME_DEV_URL) — no polling/watch.
+    pub port: u16,
+    /// Tray is live → closing the main window hides instead of quitting.
+    pub tray_ready: AtomicBool,
+    /// Set on ExitRequested/quit so the crash monitor stays quiet during teardown.
+    pub shutting_down: AtomicBool,
+    pub update: Mutex<updater::UpdateState>,
 }
 
-/// Bundled runtime dir: env override → resource dir → ../Resources next to the exe.
-fn resolve_runtime_dir(app: &tauri::App) -> Option<PathBuf> {
-    if let Ok(dir) = std::env::var("RESUME_RUNTIME_DIR") {
-        return Some(PathBuf::from(dir));
+fn focus_main(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.unminimize();
+        let _ = win.show();
+        let _ = win.set_focus();
     }
-    if let Ok(resources) = app.path().resource_dir() {
-        let dir = resources.join("runtime");
-        if dir.is_dir() {
-            return Some(dir);
-        }
-    }
-    let exe = std::env::current_exe().ok()?;
-    let dir = exe.parent()?.parent()?.join("Resources").join("runtime");
-    dir.is_dir().then_some(dir)
 }
 
-/// Writable data dir: app data dir → ~/Library/Application Support/<id> → temp.
-fn resolve_data_dir(app: &tauri::App) -> PathBuf {
-    if let Ok(dir) = app.path().app_data_dir() {
-        return dir;
-    }
-    if let Ok(home) = std::env::var("HOME") {
-        return PathBuf::from(home)
-            .join("Library")
-            .join("Application Support")
-            .join(APP_ID);
-    }
-    std::env::temp_dir().join("resume-studio")
-}
-
-fn wait_for_port(port: u16, timeout: Duration) -> bool {
-    let started = Instant::now();
-    while started.elapsed() < timeout {
-        if TcpStream::connect(("127.0.0.1", port)).is_ok() {
-            return true;
-        }
-        std::thread::sleep(Duration::from_millis(120));
-    }
-    false
-}
-
-fn spawn_server(runtime: &Path, data_dir: &Path, port: u16, log: &Path) -> std::io::Result<Child> {
-    let node = runtime.join(if cfg!(windows) { "node.exe" } else { "node" });
-    let cli = runtime.join("node_modules").join("vinext").join("dist").join("cli.js");
-
-    let stdout = File::create(log)?;
-    let stderr = stdout.try_clone()?;
-
-    Command::new(node)
-        .arg(cli)
-        .arg("start")
-        .arg("--port")
-        .arg(port.to_string())
-        .current_dir(runtime)
-        .env("NODE_ENV", "production")
-        .env("RESUME_DATA_DIR", data_dir)
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(stdout.try_clone()?))
-        .stderr(Stdio::from(stderr))
-        .spawn()
-}
-
-fn open_window(app: &mut tauri::App, url: url::Url) -> tauri::Result<()> {
+fn open_window(app: &tauri::App, url: url::Url) -> tauri::Result<()> {
     WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
         .title("Resume Studio")
         .inner_size(1500.0, 960.0)
@@ -115,33 +75,41 @@ fn open_error_window(app: &mut tauri::App) {
         .build();
 }
 
-fn boot(app: &mut tauri::App) -> Result<(), String> {
-    // Dev shortcut: reuse an already-running dev server.
-    if let Ok(raw) = std::env::var("RESUME_DEV_URL") {
-        let url = url::Url::parse(&raw).map_err(|e| format!("RESUME_DEV_URL 无效: {e}"))?;
-        return open_window(app, url).map_err(|e| e.to_string());
+/// Boots the bundled server (or reuses the dev URL). Returns the data dir and
+/// the port the server listens on (0 in dev mode).
+fn boot(app: &mut tauri::App, dev_url: Option<&str>) -> Result<(PathBuf, u16), String> {
+    if let Some(raw) = dev_url {
+        let url = url::Url::parse(raw).map_err(|e| format!("RESUME_DEV_URL 无效: {e}"))?;
+        open_window(app, url).map_err(|e| e.to_string())?;
+        return Ok((server::resolve_data_dir(app), 0));
     }
 
-    let runtime = resolve_runtime_dir(app).ok_or("找不到内置 Node 运行时（runtime/）")?;
-    let data_dir = resolve_data_dir(app);
+    let runtime = server::resolve_runtime_dir(app).ok_or("找不到内置 Node 运行时（runtime/）")?;
+    let data_dir = server::resolve_data_dir(app);
     std::fs::create_dir_all(&data_dir).map_err(|e| format!("无法创建数据目录: {e}"))?;
     let log_path = data_dir.join("server.log");
 
-    println!("[resume-studio] runtime={}", runtime.display());
-    println!("[resume-studio] data={}", data_dir.display());
+    logger::log(
+        &data_dir,
+        "info",
+        &format!("启动：runtime={} data={}", runtime.display(), data_dir.display()),
+    );
 
-    let port = free_port();
-    let child = spawn_server(&runtime, &data_dir, port, &log_path)
-        .map_err(|e| format!("无法启动内置服务: {e}"))?;
+    let port = server::free_port();
+    let child = server::spawn_server(&runtime, &data_dir, port, &log_path).map_err(|e| {
+        logger::log(&data_dir, "error", &format!("无法启动内置服务: {e}"));
+        format!("无法启动内置服务: {e}")
+    })?;
     app.manage(ServerState(Mutex::new(Some(child))));
 
-    let ready = wait_for_port(port, Duration::from_secs(45));
-    println!("[resume-studio] serving on http://127.0.0.1:{port}/ ready={ready}");
+    let ready = server::wait_for_port(port, Duration::from_secs(45));
+    logger::log(&data_dir, "info", &format!("内置服务就绪 port={port} ready={ready}"));
 
     if ready {
         let url = url::Url::parse(&format!("http://127.0.0.1:{port}/"))
             .map_err(|e| format!("地址无效: {e}"))?;
-        open_window(app, url).map_err(|e| e.to_string())
+        open_window(app, url).map_err(|e| e.to_string())?;
+        Ok((data_dir, port))
     } else {
         Err(format!(
             "内置服务 45 秒内未就绪，日志：{}",
@@ -152,17 +120,76 @@ fn boot(app: &mut tauri::App) -> Result<(), String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(single_instance_init(|app, _args, _cwd| {
+            focus_main(app);
+        }))
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            if let Err(err) = boot(app) {
-                eprintln!("[resume-studio] setup failed: {err}");
-                open_error_window(app);
+            match boot(app, std::env::var("RESUME_DEV_URL").ok().as_deref()) {
+                Ok((data_dir, port)) => {
+                    app.manage(AppState {
+                        data_dir,
+                        port,
+                        tray_ready: AtomicBool::new(false),
+                        shutting_down: AtomicBool::new(false),
+                        update: Mutex::new(updater::UpdateState::default()),
+                    });
+                    let handle = app.handle().clone();
+                    tray::init(&handle);
+                    if port != 0 {
+                        updater::spawn_poller(handle.clone());
+                        server::spawn_crash_monitor(handle);
+                    }
+                }
+                Err(err) => {
+                    eprintln!("[resume-studio] setup failed: {err}");
+                    let data_dir = server::resolve_data_dir(app);
+                    logger::log(&data_dir, "error", &format!("启动失败: {err}"));
+                    open_error_window(app);
+                }
             }
             Ok(())
         })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() != "main" {
+                    return;
+                }
+                let resident = window
+                    .app_handle()
+                    .try_state::<AppState>()
+                    .map(|state| state.tray_ready.load(Ordering::SeqCst))
+                    .unwrap_or(false);
+                if resident {
+                    api.prevent_close();
+                    let _ = window.hide();
+                    if let Some(state) = window.app_handle().try_state::<AppState>() {
+                        logger::log(&state.data_dir, "info", "主窗口关闭 → 驻留托盘");
+                    }
+                }
+            }
+        })
         .build(tauri::generate_context!())
         .expect("failed to build Resume Studio")
-        .run(|app_handle, event| {
-            if let RunEvent::Exit = event {
+        .run(|app_handle, event| match event {
+            // macOS: clicking the Dock icon while the window is hidden.
+            #[cfg(target_os = "macos")]
+            RunEvent::Reopen { has_visible_windows, .. } => {
+                if !has_visible_windows {
+                    focus_main(app_handle);
+                }
+            }
+            RunEvent::ExitRequested { .. } => {
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    state.shutting_down.store(true, Ordering::SeqCst);
+                }
+            }
+            RunEvent::Exit => {
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    state.shutting_down.store(true, Ordering::SeqCst);
+                    logger::log(&state.data_dir, "info", "应用退出");
+                }
                 if let Some(state) = app_handle.try_state::<ServerState>() {
                     if let Ok(mut guard) = state.0.lock() {
                         if let Some(mut child) = guard.take() {
@@ -172,5 +199,6 @@ fn main() {
                     }
                 }
             }
+            _ => {}
         });
 }

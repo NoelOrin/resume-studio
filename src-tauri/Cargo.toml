@@ -3,14 +3,23 @@ name = "resume-studio-desktop"
 version = "2.3.7"
 description = "Resume Studio desktop shell"
 edition = "2021"
-rust-version = "1.77"
+# tauri-plugin-single-instance requires >= 1.90
+rust-version = "1.90"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-notification = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-opener = "2"
 url = "2"
+serde_json = "1"
+# Plain-HTTP only (localhost /api/update polling); no TLS backend needed.
+ureq = { version = "2", default-features = false }
+arboard = { version = "3", default-features = false }
+humantime = "2"
 
 [profile.release]
 # Thin LTO keeps CI bundle builds fast; the Rust side is a shell around a

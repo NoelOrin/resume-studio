@@ -1,0 +1,9 @@
+{
+  "identifier": "desktop-integration",
+  "description": "localhost webview may send OS notifications (operation feedback). No events, no custom commands, no fs/shell.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*", "http://localhost:*"]
+  },
+  "permissions": ["notification:default"]
+}

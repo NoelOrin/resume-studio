@@ -7,7 +7,7 @@
 Resume Studio——多模板简历编辑器：
 
 - **Web**：vinext（Next.js App Router on Vite）+ React 19 RSC，全栈跑在 Node（Route Handlers + 内嵌 libSQL 本地库，`src/server/db.ts` 打开 `<RESUME_DATA_DIR>/resume-studio.db`，不用浏览器 localStorage）。
-- **桌面**：Tauri 壳只提供 WebView，内置 Node 运行时拉起 `vinext start`；窗口加载 `http://127.0.0.1:<port>`，拿不到 Tauri IPC（默认无 IPC capability）。
+- **桌面**：Tauri 壳 + 内置 Node 运行时拉起 `vinext start`；窗口加载 `http://127.0.0.1:<port>`。IPC 面最小：capability（`src-tauri/capabilities/desktop.json`）只给 localhost 来源授 `notification:default`。托盘、关窗驻留、后台更新轮询（Rust 每小时拉本机 `/api/update`）、壳日志 `shell.log` 与「反馈问题」都在 Rust 侧（`src-tauri/src/{tray,updater,logger,server}.rs`），设计见 `docs/superpowers/specs/2026-10-27-desktop-capabilities-design.md`。
 - **AI 接入**：同一份数据通过 MCP（Streamable HTTP，`/api/mcp`）暴露给客户端。
 
 目标运行时是 **Node 20+**；不考虑 Cloudflare Workers。
@@ -25,7 +25,7 @@ npm run build && npm run start      # 生产（默认 3000）
 npm run desktop:build               # version:sync → 组装 runtime → tauri build
 ```
 
-**完成的口径**：`npm run check` 与 `npm test` 全绿。commit 信息用 Conventional Commits（`feat(editor): …`），风格对照 `git log`。
+**完成的口径**：`npm run check` 与 `npm test` 全绿；改了 `src-tauri/` 还要 `cargo test`（在 src-tauri/ 下）全绿。commit 信息用 Conventional Commits（`feat(editor): …`），风格对照 `git log`。
 
 ## 工作区雷区
 

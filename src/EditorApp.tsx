@@ -18,6 +18,7 @@ import { APP_VERSION } from "./lib/version";
 import { useResumeStore } from "./lib/useResumeStore";
 import { usePageOverflow } from "./lib/usePageOverflow";
 import { useUpdateCheck } from "./lib/useUpdateCheck";
+import { isDesktop, sendSystemNotification, shouldUseSystemNotification } from "./lib/desktop";
 import {
   checkHealth,
   clearLegacyStorage,
@@ -137,11 +138,22 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
   const pageTotal = pageCountOf(template, data);
   const overflow = usePageOverflow(pageRef);
 
-  const notify = useCallback((msg: string, kind: "ok" | "err" = "ok", ttl = 3000) => {
-    setToast({ msg, kind });
-    window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(null), ttl);
-  }, []);
+  const notify = useCallback(
+    (msg: string, kind: "ok" | "err" = "ok", ttl = 3000, opts?: { system?: boolean }) => {
+      // Slow operations (save/publish/export) also surface as an OS
+      // notification when the user has switched away; the toast always fires.
+      if (
+        opts?.system &&
+        shouldUseSystemNotification({ desktop: isDesktop(), windowFocused: document.hasFocus(), important: true })
+      ) {
+        void sendSystemNotification("Resume Studio", msg);
+      }
+      setToast({ msg, kind });
+      window.clearTimeout(toastTimer.current);
+      toastTimer.current = window.setTimeout(() => setToast(null), ttl);
+    },
+    [],
+  );
 
   /* ---------------- workspace persistence (embedded local database) ---------------- */
   // One server-side record binds title + data + docId — the old localStorage
@@ -450,7 +462,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
       const id = ensureId();
       await putDoc(id, title, data);
       setSyncedAt(Date.now());
-      notify(`已保存到本地数据库（${id}）`);
+      notify(`已保存到本地数据库（${id}）`, "ok", 3000, { system: true });
       void refreshDocs();
     } catch (err) {
       notify(`保存失败：${(err as Error).message}`, "err");
@@ -474,7 +486,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
       setSyncedAt(Date.now());
       const url = new URL(result.path, window.location.origin).toString();
       const copied = await copyText(url);
-      notify(copied ? `已发布并复制链接：${result.path}` : `已发布：${url}`);
+      notify(copied ? `已发布并复制链接：${result.path}` : `已发布：${url}`, "ok", 3000, { system: true });
       void refreshDocs();
     } catch (err) {
       downloadHtml(html, `${fileBase(title)}.html`);
@@ -515,7 +527,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
     const filename = `${fileBase(title)}.json`;
     exportJson(data, filename);
     archiveProduced("json", filename, JSON.stringify(data, null, 2));
-    notify("已导出 JSON");
+    notify("已导出 JSON", "ok", 3000, { system: true });
   };
 
   const downloadCurrentHtml = () => {
@@ -525,7 +537,7 @@ export function EditorApp({ initialDocs, initialDoc }: { initialDocs: DocRecord[
     const filename = `${fileBase(title)}.html`;
     downloadHtml(html, filename);
     archiveProduced("html", filename, html);
-    notify("已导出单页 HTML（含全部页面）");
+    notify("已导出单页 HTML（含全部页面）", "ok", 3000, { system: true });
   };
 
   const importJson = async (event: ChangeEvent<HTMLInputElement>) => {
