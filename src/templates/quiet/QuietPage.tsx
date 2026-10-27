@@ -176,7 +176,7 @@ function QuietPageBody({ data, page = 0, duplex = false }: { data: ResumeData; p
                       </span>
                     ))}
                   </span>
-                  <span className="qt-wk-desc">{p.desc}</span>
+                  <span className="qt-wk-desc">{rich(p.desc)}</span>
                 </li>
               ))}
             </ol>

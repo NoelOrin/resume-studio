@@ -171,7 +171,7 @@ function ProfileCard({ data, wide = false }: { data: ResumeData; wide?: boolean 
       {wide ? (
         <div className="pw">
           <div className="pw-body">
-            <p>{profile.text}</p>
+            <p>{rich(profile.text)}</p>
             {flags.showStats && (
               <div className="pstats">
                 {profile.stats.map((s, i) => (
@@ -189,7 +189,7 @@ function ProfileCard({ data, wide = false }: { data: ResumeData; wide?: boolean 
         <>
           <div className="profile">
             <PixelMark />
-            <p>{profile.text}</p>
+            <p>{rich(profile.text)}</p>
           </div>
           {flags.showStats && (
             <div className="pstats">
@@ -338,7 +338,7 @@ function ProjectsSection({ data, showcase = false }: { data: ResumeData; showcas
             {showcase && <span className="proj-mark">{p.code}</span>}
             <div className="proj-body">
               <div className="kind">{p.kind}</div>
-              <p className="desc">{p.desc}</p>
+              <p className="desc">{rich(p.desc)}</p>
               <div className="nums">
                 {p.stats.map((s, j) => (
                   <span key={j}>

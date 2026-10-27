@@ -10,9 +10,18 @@ import type { ReactNode } from "react";
  * tokens become <b> (templates style `b` as their mono/accent emphasis).
  */
 export function rich(text: string): ReactNode[] {
-  return text.split(/(\{[^{}]+\})/).map((part, i) =>
-    part.startsWith("{") && part.endsWith("}") ? <b key={i}>{part.slice(1, -1)}</b> : <span key={i}>{part}</span>,
-  );
+  const lines = text.replace(/\r\n?/g, "\n").replace(/\n+$/, "").split("\n");
+  const nodes: ReactNode[] = [];
+  lines.forEach((line, lineIndex) => {
+    if (lineIndex > 0) nodes.push(<br key={`br-${lineIndex}`} />);
+    line.split(/(\{[^{}]+\})/).forEach((part, i) => {
+      const key = `${lineIndex}-${i}`;
+      nodes.push(
+        part.startsWith("{") && part.endsWith("}") ? <b key={key}>{part.slice(1, -1)}</b> : <span key={key}>{part}</span>,
+      );
+    });
+  });
+  return nodes;
 }
 
 /** "PROFILE / 个人简介" → ["PROFILE", "个人简介"] (kicker EN/ZH split on first slash). */

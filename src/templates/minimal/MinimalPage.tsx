@@ -44,7 +44,7 @@ function ProfileSec({ data }: { data: ResumeData }) {
       <h2>
         PROFILE <em>{profile.no}</em>
       </h2>
-      <p>{profile.text}</p>
+      <p>{rich(profile.text)}</p>
       {data.flags.showStats && (
         <div className="mn-list">
           {profile.stats.map((s, i) => (
@@ -120,7 +120,7 @@ function ProjectsSec({ data }: { data: ResumeData }) {
       {projects.items.map((p, i) => (
         <article className="mn-proj" key={i}>
           <b>{p.name}</b>
-          <span className="desc">{p.desc}</span>
+          <span className="desc">{rich(p.desc)}</span>
           <span className="meta">
             {p.stats.map((s, j) => (
               <span key={j}>
