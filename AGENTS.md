@@ -38,7 +38,7 @@ npm run desktop:build               # version:sync → 组装 runtime → tauri 
 
 | 事实 | 唯一来源 | 派生 / 护栏 |
 | --- | --- | --- |
-| 应用版本 | `package.json` | `npm run version:sync` 同步其余三处；`tests/version-sync.test.ts` 拦漂移 |
+| 应用版本 | `package.json` | `npm run version:sync` 同步其余四处（含 Cargo.lock——发版机器人只改其余三处）；`tests/version-sync.test.ts` 拦漂移 |
 | 模板注册 | `src/templates/registry.tsx`（每模板一次 `defineTemplate()`） | `catalog.ts` 是派生元数据，**不要手改**；`tests/template-contract.test.ts` 强制契约 |
 | 模板开发规范 | `docs/template-authoring.md` | 契约由 `src/templates/validate.tsx`（仅测试/脚本可用）执行 |
 | 编辑面板联动 id | `src/templates/types.ts` 的 `PANEL_IDS` | `EditorApp.PANELS` 用 `PanelLink` 类型锁定 |

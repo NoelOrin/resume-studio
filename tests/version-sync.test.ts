@@ -29,6 +29,14 @@ test('version declarations match package.json', () => {
   )
 
   assert.equal(
+    repo('src-tauri/Cargo.lock').match(
+      /name = "resume-studio-desktop"\nversion = "([^"]+)"/,
+    )?.[1],
+    version,
+    'src-tauri/Cargo.lock version drifts — run `npm run version:sync`',
+  )
+
+  assert.equal(
     repo('src/mcp/config.ts').match(/^\s*version: "(.+)",$/m)?.[1],
     version,
     'src/mcp/config.ts version drifts — run `npm run version:sync`',

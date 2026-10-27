@@ -37,6 +37,16 @@ const targets = [
     set: (t) => t.replace(/^version = ".+"$/m, `version = "${version}"`),
   },
   {
+    // The release bot bumps Cargo.toml but not the lockfile; keep the shell's
+    // own entry in lockstep (anchored to the package name — other entries
+    // carry unrelated versions).
+    file: "src-tauri/Cargo.lock",
+    text: true,
+    get: (t) => t.match(/name = "resume-studio-desktop"\nversion = "([^"]+)"/)?.[1],
+    set: (t) =>
+      t.replace(/(name = "resume-studio-desktop"\nversion = )"[^"]+"/, `$1"${version}"`),
+  },
+  {
     file: "src/mcp/config.ts",
     text: true,
     get: (t) => t.match(/^\s*version: "(.+)",$/m)?.[1],
