@@ -1,6 +1,6 @@
 {
   "name": "resume-studio",
-  "version": "2.3.4",
+  "version": "2.3.5",
   "private": true,
   "type": "module",
   "packageManager": "npm@11.12.1",
