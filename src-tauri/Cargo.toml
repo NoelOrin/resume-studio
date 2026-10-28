@@ -1,6 +1,6 @@
 [package]
 name = "resume-studio-desktop"
-version = "2.3.11"
+version = "2.3.12"
 description = "Resume Studio desktop shell"
 edition = "2021"
 # tauri-plugin-single-instance requires >= 1.90
