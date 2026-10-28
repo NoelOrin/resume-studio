@@ -136,6 +136,10 @@ test('every wrong-typed field normalises into a renderable document', () => {
   const failures: string[] = []
   let cases = 0
 
+  // renderEverywhere is a pure function of the migrated document, so matrix
+  // entries whose normalised output is byte-identical only need one render.
+  const rendered = new Set<string>()
+
   for (const { path, type } of paths) {
     for (const injected of WRONG_VALUES[type] ?? []) {
       cases++
@@ -157,6 +161,10 @@ test('every wrong-typed field normalises into a renderable document', () => {
         failures.push(`${path}=${JSON.stringify(injected)}: shape ${(error as Error).message}`)
         continue
       }
+
+      const fingerprint = JSON.stringify(migrated)
+      if (rendered.has(fingerprint)) continue
+      rendered.add(fingerprint)
 
       try {
         renderEverywhere(migrated)
