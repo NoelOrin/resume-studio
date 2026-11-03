@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -65,7 +65,7 @@ jobs:
       contents: write
     # Runners ship a recent Node; the job only needs it for npm/node one-liners.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -125,7 +125,7 @@ jobs:
 
     steps:
       - name: Check out release tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.version.outputs.tagged == 'true' && format('refs/tags/v{0}', needs.version.outputs.version) || github.ref }}
 
@@ -231,7 +231,7 @@ jobs:
     steps:
       # gh release create --generate-notes shells out to git, and needs history
       # to diff against the previous tag.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
