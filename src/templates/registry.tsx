@@ -13,6 +13,8 @@ import { QUIET_CSS } from "./quiet/styles";
 
 import { ProofPage } from "./proof/ProofPage";
 import { PROOF_CSS } from "./proof/styles";
+import { LetterheadPage } from "./letterhead/LetterheadPage";
+import { LETTERHEAD_CSS } from "./letterhead/styles";
 // npm run tpl:new inserts imports for new templates above this line — do not remove
 
 /**
@@ -170,6 +172,38 @@ export const templates: TemplateDefinition[] = [
     cssScope: "moonlight",
     css: MOONLIGHT_CSS + MOONLIGHT_DAY_CSS,
     render: (data, page) => <MoonlightPage data={data} page={page} duplex day />,
+  }),
+  defineTemplate({
+    id: "letterhead",
+    nameZh: "企业信笺",
+    description: "深色信笺抬头 + 主色细线 + 双语栏目标题与信息卡：正式、克制、像一封盖章的公函。",
+    pages: 1,
+    accent: "#16A34A",
+    tags: ["单页", "信笺", "正式"],
+    css: LETTERHEAD_CSS,
+    render: (data) => <LetterheadPage data={data} />,
+  }),
+  defineTemplate({
+    id: "letterhead-duplex",
+    nameZh: "企业信笺 · 双页",
+    description: "信笺版的跨页排布：第 1 页履历与简介，第 2 页项目档案与技术栈证书，抬头页脚贯穿两页。",
+    pages: 2,
+    accent: "#16A34A",
+    tags: ["双页", "信笺", "正式"],
+    cssScope: "letterhead",
+    css: LETTERHEAD_CSS,
+    render: (data, page) => <LetterheadPage data={data} page={page} duplex />,
+  }),
+  defineTemplate({
+    id: "letterhead-dense",
+    nameZh: "企业信笺 · 密排",
+    description: "信笺的“全量单页”：项目两列进正文、技能压成一行，信息更全但不挤压阅读。",
+    pages: 1,
+    accent: "#16A34A",
+    tags: ["单页", "信笺", "高密度"],
+    cssScope: "letterhead",
+    css: LETTERHEAD_CSS,
+    render: (data) => <LetterheadPage data={data} dense />,
   }),
   /* npm run tpl:new inserts new registrations above this line — do not remove */
 ];
