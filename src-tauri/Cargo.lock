@@ -2908,7 +2908,7 @@ dependencies = [
 
 [[package]]
 name = "resume-studio-desktop"
-version = "2.3.12"
+version = "2.4.0"
 dependencies = [
  "arboard",
  "humantime",
